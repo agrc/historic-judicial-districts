@@ -2,7 +2,7 @@
 # -*- encoding: utf-8 -*-
 """
 setup.py
-A module that installs projectname as a module
+A module that installs lookback as a module
 """
 from glob import glob
 from os.path import basename, splitext
@@ -10,13 +10,13 @@ from os.path import basename, splitext
 from setuptools import find_packages, setup
 
 setup(
-    name='projectname',
+    name='lookback',
     version='1.0.0',
     license='MIT',
-    description='Project description.',
+    description='Determine composition of historic judicial districts.',
     author='AGRC',
     author_email='agrc@utah.gov',
-    url='https://github.com/agrc/python',
+    url='https://github.com/agrc/historic-judicial-districts',
     packages=find_packages('src'),
     package_dir={'': 'src'},
     py_modules=[splitext(basename(path))[0] for path in glob('src/*.py')],
@@ -29,7 +29,7 @@ setup(
         'Topic :: Utilities',
     ],
     project_urls={
-        'Issue Tracker': 'https://github.com/agrc/python/issues',
+        'Issue Tracker': 'https://github.com/agrc/historic-judicial-districts/issues',
     },
     keywords=['gis'],
     install_requires=[
@@ -52,6 +52,6 @@ setup(
         'pytest-runner',
     ],
     entry_points={'console_scripts': [
-        'projectname = projectname.main:main',
+        'lookback = lookback.main:main',
     ]},
 )
