@@ -5,22 +5,16 @@ a description of what this module does.
 this file is for testing linting...
 """
 
-TEST = 'test'
-
-
-def hello():
-    """doc string
-    """
-    print('this is good')
-
-    print(
-        'this is a really, really, really, really, really, really, really, really, really, really, really, really,'
-        'really long line'
-    )
-
-    return 'hi'
-
+from . import models
 
 if __name__ == '__main__':
-    #: the code that executes if you run the file or module directly
-    GREETING = hello()
+
+    districts_csv = r'C:\gis\Projects\HistoricCounties\Data\JudicialDistricts\test.csv'
+    counties_shp = r'C:\gis\Projects\HistoricCounties\Data\HistoricalCountyBoundaries\UT_Historical_Counties\UT_Historical_Counties.shp'
+
+    state = models.State()
+    state.load_counties(counties_shp)
+    state.load_districts(districts_csv)
+    state.setup_counties()
+
+    print(state.counties['Beaver'])
