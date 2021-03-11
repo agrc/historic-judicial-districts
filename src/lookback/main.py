@@ -20,7 +20,9 @@ def main():
     state.calc_counties()
 
     # print(state.counties[1].change_dates_df)
-    state.combine_change_dfs(change_dates_csv)
+    # state.combine_change_dfs(change_dates_csv)
+
+    state.test_counties()
 
 
 if __name__ == '__main__':
