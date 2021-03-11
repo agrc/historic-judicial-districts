@@ -5,10 +5,10 @@ import pandas as pd
 
 
 def clean_name(name):
-    clean_name = name.casefold()
-    clean_name = clean_name.replace(' ', '')
-    clean_name = clean_name.replace('.', '')
-    return clean_name
+    cleaned_name = name.casefold()
+    cleaned_name = cleaned_name.replace(' ', '')
+    cleaned_name = cleaned_name.replace('.', '')
+    return cleaned_name
 
 
 class ChangeDate:
@@ -129,3 +129,18 @@ class County:
         ChangeDatesTuple = namedtuple('ChangeDatesTuple', 'date county_version district')
         new_dates = [ChangeDatesTuple(cd.date, cd.county_version, cd.district) for cd in change_dates]
         self.change_dates_df = pd.DataFrame(new_dates)
+
+    def test_county_districts(self):
+        '''Test the districts for this county.
+
+        For each row, make sure a) no gaps between StartDate and previous row's EndDate and b) row's OldDistrict is previous row's NewDistrict
+
+        '''
+
+        sorted_district_df = self.district_df.sort_index()
+        sorted_district_df['DistrictMatch'] = sorted_district_df['OldDistrict'].eq(
+            sorted_district_df['NewDistrict'].shift()
+        )
+        sorted_district_df['DateMatch'] = sorted_district_df['OldDistrict'].eq(
+            sorted_district_df['NewDistrict'].shift()
+        )
