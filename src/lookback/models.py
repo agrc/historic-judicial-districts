@@ -81,6 +81,12 @@ class State:
         # print(combined_change_df)
         combined_change_df.to_csv(out_path)
 
+    def test_counties(self):
+        for county in self.counties:
+            print(f'\n--- {county.name} ---')
+            county.test_county_districts()
+            county.test_county_shapes()
+
 
 class County:
 
@@ -131,16 +137,36 @@ class County:
         self.change_dates_df = pd.DataFrame(new_dates)
 
     def test_county_districts(self):
-        '''Test the districts for this county.
+        """Test the districts for this county.
 
-        For each row, make sure a) no gaps between StartDate and previous row's EndDate and b) row's OldDistrict is previous row's NewDistrict
-
-        '''
+        For each row, make sure a) no gaps between StartDate (index) and previous row's EndDate and
+        b) row's OldDistrict is previous row's NewDistrict
+        """
 
         sorted_district_df = self.district_df.sort_index()
+        sorted_district_df['StartDate'] = sorted_district_df.index
+
         sorted_district_df['DistrictMatch'] = sorted_district_df['OldDistrict'].eq(
             sorted_district_df['NewDistrict'].shift()
         )
-        sorted_district_df['DateMatch'] = sorted_district_df['OldDistrict'].eq(
-            sorted_district_df['NewDistrict'].shift()
+
+        sorted_district_df['DateMatch'] = sorted_district_df['StartDate'].eq(
+            sorted_district_df['EndDate'].shift() + pd.Timedelta(days=1)
         )
+
+        print(sorted_district_df)
+
+    def test_county_shapes(self):
+        """Test the shapes for this county.
+
+        For each row, make sure there are no gaps between START_DATE (index) and previous row's END_DATE.
+        """
+
+        sorted_shape_df = self.shape_df.sort_index()
+        sorted_shape_df['StartDate'] = sorted_shape_df.index
+
+        sorted_shape_df['DateMatch'] = sorted_shape_df['StartDate'].eq(
+            sorted_shape_df['END_DATE'].shift() + pd.Timedelta(days=1)
+        )
+
+        print(sorted_shape_df.loc[:, ['END_DATE', 'ID', 'VERSION', 'DateMatch']])
