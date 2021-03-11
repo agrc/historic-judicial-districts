@@ -15,11 +15,12 @@ class ChangeDate:
 
     def __init__(self, date):
         self.date = date
+        self.county_name = 'n/a'
         self.county_version = 'n/a'
         self.district = 'n/a'
 
     def __repr__(self):
-        return ', '.join([str(self.date), self.county_version, str(self.district)])
+        return ', '.join([str(self.date), self.county_name, self.county_version, str(self.district)])
 
 
 class State:
@@ -28,6 +29,7 @@ class State:
         self.counties_df = None
         self.districts_df = None
         self.counties = []  #: list of County objects
+        self.combine_change_df = None  #: pd.DataFrame of all the different change dates
 
     def load_counties(self, counties_shp):
 
@@ -70,22 +72,21 @@ class State:
             county.setup(self.counties_df, self.districts_df)
             self.counties.append(county)
 
-    def calc_counties(self):
-        for county in self.counties:
-            county.calc_change_dates()
-
-    def combine_change_dfs(self, out_path):
-        combined_change_df = pd.DataFrame()  #columns=['date', 'county_version', 'district'])
-        for county in self.counties:
-            combined_change_df = combined_change_df.append(county.change_dates_df)
-        # print(combined_change_df)
-        combined_change_df.to_csv(out_path)
-
     def test_counties(self):
         for county in self.counties:
             print(f'\n--- {county.name} ---')
             county.test_county_districts()
             county.test_county_shapes()
+
+    def calc_counties(self):
+        for county in self.counties:
+            county.calc_change_dates()
+
+    def combine_change_dfs(self, out_path):
+        self.combined_change_df = pd.DataFrame()  #columns=['date', 'county_version', 'district'])
+        for county in self.counties:
+            self.combined_change_df = self.combined_change_df.append(county.change_dates_df)
+        self.combined_change_df.to_csv(out_path)
 
 
 class County:
@@ -119,6 +120,7 @@ class County:
         change_dates = [ChangeDate(date) for date in dates]
 
         for change_date in change_dates:
+            change_date.county_name = self.name
             #: Get the county key for this date
             for county_row in self.shape_df.itertuples():
                 if change_date.date >= county_row.Index and change_date.date <= county_row.END_DATE:
@@ -132,8 +134,8 @@ class County:
 
         #: Now we can use a namedtuple to translate our object to dataframe rows
         #: (Didn't use one at first because we had to alter the list of ChangeDate items in the iterations)
-        ChangeDatesTuple = namedtuple('ChangeDatesTuple', 'date county_version district')
-        new_dates = [ChangeDatesTuple(cd.date, cd.county_version, cd.district) for cd in change_dates]
+        ChangeDatesTuple = namedtuple('ChangeDatesTuple', 'date county_name county_version district')
+        new_dates = [ChangeDatesTuple(cd.date, cd.county_name, cd.county_version, cd.district) for cd in change_dates]
         self.change_dates_df = pd.DataFrame(new_dates)
 
     def test_county_districts(self):
