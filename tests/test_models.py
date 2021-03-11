@@ -1,11 +1,10 @@
 import pandas as pd
-import pytest
 
 from lookback import models
 
 
 def test_calc_change_dates(mocker):
-    county = mocker.mock()
+    county = mocker.Mock()
 
     #: Mock up shape and districts df
     county.shape_df = pd.DataFrame(
@@ -18,16 +17,17 @@ def test_calc_change_dates(mocker):
     county.shape_df.index = pd.to_datetime(county.shape_df.index)
     county.shape_df['END_DATE'] = pd.to_datetime(county.shape_df['END_DATE'])
 
-    county.districts_df = pd.DataFrame(
+    county.district_df = pd.DataFrame(
         data={
             'NewDistrict': ['1', '2', '3'],
             'EndDate': ['2020-02-14', '2020-02-24', '2020-02-28'],
         },
         index=['2020-02-10', '2020-02-15', '2020-02-25']
     )
-    county.districts_df.index = pd.to_datetime(county.districts_df.index)
-    county.districts_df['EndDate'] = pd.to_datetime(county.districts_df['EndDate'])
+    county.district_df.index = pd.to_datetime(county.district_df.index)
+    county.district_df['EndDate'] = pd.to_datetime(county.district_df['EndDate'])
 
+    #: Actual Test
     models.County.calc_change_dates(county)
 
     #: Data output dataframe should match this
