@@ -29,7 +29,7 @@ class State:
         self.counties_df = None
         self.districts_df = None
         self.counties = []  #: list of County objects
-        self.combine_change_df = None  #: pd.DataFrame of all the different change dates
+        self.combined_change_df = None  #: pd.DataFrame of all the different change dates
 
     def load_counties(self, counties_shp):
 
@@ -37,6 +37,7 @@ class State:
         print(f'Loading counties from {counties_shp}...')
         counties_list = []
         county_fields = [f.name for f in arcpy.ListFields(counties_shp)]
+        county_fields.append('SHAPE@')  #: Get the geometry so we can create a new feature class
         with arcpy.da.SearchCursor(counties_shp, county_fields) as search_cursor:
             for row in search_cursor:
                 counties_list.append(dict(zip(county_fields, row)))
@@ -88,6 +89,12 @@ class State:
             self.combined_change_df = self.combined_change_df.append(county.change_dates_df)
         self.combined_change_df.to_csv(out_path)
 
+    #: TODO: finish merging, figure out writing (build each row of an insert cursor from each row of the dataframe, write to out_path)
+    def insert_geometries(self, out_path):
+        for county in self.counties:
+            county.insert_districts_into_geometries()
+        pass
+
 
 class County:
 
@@ -96,6 +103,7 @@ class County:
         self.shape_df = None  #: All entries for this county in the historical county shape/geography dataframe
         self.district_df = None  #: All entries for this county in the historical district composition dataframe
         self.change_dates_df = None  #: The change dates with corresponding district and shape versions
+        self.joined_df = None  #: change_dates_df merged with shape_df on county key
 
     def setup(self, counties_df, districts_df):
         #: create a local shape dataframe of just the county, change the index to the start date of each version
@@ -137,6 +145,23 @@ class County:
         ChangeDatesTuple = namedtuple('ChangeDatesTuple', 'date county_name county_version district')
         new_dates = [ChangeDatesTuple(cd.date, cd.county_name, cd.county_version, cd.district) for cd in change_dates]
         self.change_dates_df = pd.DataFrame(new_dates)
+        self.change_dates_df['end_date'] = self.change_dates_df['date'].shift(-1) - pd.Timedelta(days=1)
+
+    def copy_geometries_into_change_dates(self):
+        self.joined_df = pd.merge(
+            self.change_dates_df, self.shape_df, left_on='county_version', right_on='county_key', validate='m:1'
+        )
+        self.joined_df.drop([
+            'FID',
+            'Shape',
+            'STATE',
+            'START_N',
+            'END_N',
+            'AREA_SQMI',
+            'DATASET',
+        ],
+                            axis='columns',
+                            inplace=True)
 
     def test_county_districts(self):
         """Test the districts for this county.
