@@ -1,4 +1,5 @@
 from collections import namedtuple
+from pathlib import Path
 
 import arcpy
 import pandas as pd
@@ -30,6 +31,7 @@ class State:
         self.districts_df = None
         self.counties = []  #: list of County objects
         self.combined_change_df = None  #: pd.DataFrame of all the different change dates
+        self.output_df = None  #: pd.DataFrame of all change dates with geometries joined on county_key
 
     def load_counties(self, counties_shp):
 
@@ -65,7 +67,6 @@ class State:
 
     def setup_counties(self):
         #: Get a list of counties from the districts data frame and load them in as County objects
-
         county_names = self.districts_df['CountyName'].unique()
         for name in county_names:
             print(f'Setting up {name}...')
@@ -89,11 +90,35 @@ class State:
             self.combined_change_df = self.combined_change_df.append(county.change_dates_df)
         self.combined_change_df.to_csv(out_path)
 
-    #: TODO: finish merging, figure out writing (build each row of an insert cursor from each row of the dataframe, write to out_path)
-    def insert_geometries(self, out_path):
+    #: TODO: sort out paths
+    def insert_geometries(self, out_path, template_shp):
+        print('Coying geometries into change dates...')
+        self.output_df = pd.DataFrame()
         for county in self.counties:
-            county.insert_districts_into_geometries()
-        pass
+            county.copy_geometries_into_change_dates()
+            self.output_df = self.output_df.append(county.joined_df)
+
+        print(f'Creating output {out_path}...')
+        out_gdb = str(Path(out_path).parent)
+        out_name = str(Path(out_path).name)
+        template_prj = str(Path(template_shp).with_suffix('.prj'))
+        arcpy.management.CreateFeatureclass(out_gdb, out_name, 'POLYGON', template_shp, spatial_reference=template_prj)
+
+        new_fields = [
+            ['date', 'DATE'],
+            ['county_name', 'TEXT'],
+            ['county_version', 'TEXT'],
+            ['district', 'TEXT'],
+            ['end_date', 'DATE'],
+            ['county_key', 'TEXT'],
+        ]
+
+        arcpy.management.AddFields(out_path, new_fields)
+
+        print(f'Writing out to {out_path}...')
+        with arcpy.da.InsertCursor(out_path, list(self.output_df.columns)) as insert_cursor:
+            for row in self.output_df.values.tolist():
+                insert_cursor.insertRow(row)
 
 
 class County:
@@ -115,11 +140,6 @@ class County:
         self.district_df = districts_df[districts_df['CountyName'].str.contains(self.name, case=False)].copy()
         self.district_df.set_index('StartDate', inplace=True)
         self.district_df.sort_index(inplace=True)
-
-    def get_versions(self):
-        #         check_dates = self.all_dates + pd.Timedelta(days=1)
-        #         versions_df = pd.DataFrame(self.all_dates + pd.Timedelta(days=1))
-        pass
 
     def calc_change_dates(self):
 
