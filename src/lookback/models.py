@@ -18,10 +18,14 @@ class ChangeDate:
         self.date = date
         self.county_name = 'n/a'
         self.county_version = 'n/a'
-        self.district = 'n/a'
+        self.district_number = 'n/a'
+        self.district_version = 'n/a'
 
     def __repr__(self):
-        return ', '.join([str(self.date), self.county_name, self.county_version, str(self.district)])
+        return ', '.join([
+            str(self.date), self.county_name, self.county_version,
+            str(self.district_number), self.district_version
+        ])
 
 
 class State:
@@ -102,22 +106,52 @@ class State:
         out_gdb = str(Path(out_path).parent)
         out_name = str(Path(out_path).name)
         template_prj = str(Path(template_shp).with_suffix('.prj'))
-        arcpy.management.CreateFeatureclass(out_gdb, out_name, 'POLYGON', template_shp, spatial_reference=template_prj)
+        arcpy.management.CreateFeatureclass(out_gdb, out_name, 'POLYGON', spatial_reference=template_prj)
 
         new_fields = [
-            ['date', 'DATE'],
-            ['county_name', 'TEXT'],
-            ['county_version', 'TEXT'],
-            ['district', 'TEXT'],
-            ['end_date', 'DATE'],
-            ['county_key', 'TEXT'],
+            ['NAME', 'TEXT'],  #: shp NAME
+            ['ID', 'TEXT'],  #: shp ID
+            ['FIPS', 'TEXT'],  #: shp FIPS
+            ['SHP_VERSION', 'TEXT'],  #: shp VERSION
+            ['DST_NUMBER', 'TEXT'],  #: change_df district
+            ['SHP_START_DATE', 'DATE'],  #: shp START_DATE
+            ['SHP_END_DATE', 'DATE'],  #: shp END_DATE
+            ['DST_START_DATE', 'DATE'],  #: change_df date
+            ['DST_END_DATE', 'DATE'],  #: change_df end_date
+            ['SHP_CHANGE', 'TEXT'],  #: shp CHANGE
+            ['SHP_CITATION', 'TEXT'],  #: shp CITATION
+            ['SHP_AREA_SQMI', 'DOUBLE'],  #: shp AREA_SQMI
+            ['SHP_KEY', 'TEXT'],  #: change_df county_key
+            ['DST_KEY', 'TEXT'],  #: change_df district_key
         ]
+
+        df_renamer = {
+            'NAME': 'NAME',
+            'ID': 'ID',
+            'FIPS': 'FIPS',
+            'VERSION': 'SHP_VERSION',
+            'START_DATE': 'SHP_START_DATE',
+            'END_DATE': 'SHP_END_DATE',
+            'CHANGE': 'SHP_CHANGE',
+            'CITATION': 'SHP_CITATION',
+            'AREA_SQMI': 'SHP_AREA_SQMI',
+            'date': 'DST_START_DATE',
+            'end_date': 'DST_END_DATE',
+            'district_number': 'DST_NUMBER',
+            'county_key': 'SHP_KEY',
+            'district_key': 'DST_KEY',
+            'SHAPE@': 'SHAPE@',
+        }
 
         arcpy.management.AddFields(out_path, new_fields)
 
         print(f'Writing out to {out_path}...')
-        with arcpy.da.InsertCursor(out_path, list(self.output_df.columns)) as insert_cursor:
-            for row in self.output_df.values.tolist():
+
+        #: Rename the data frame columns to match the output fields
+        renamed_df = self.output_df.rename(columns=df_renamer)
+        cursor_fields = df_renamer.values()  #: Only look at the renamed columns
+        with arcpy.da.InsertCursor(out_path, list(cursor_fields)) as insert_cursor:
+            for row in renamed_df[cursor_fields].values.tolist():
                 insert_cursor.insertRow(row)
 
 
@@ -134,6 +168,7 @@ class County:
         #: create a local shape dataframe of just the county, change the index to the start date of each version
         self.shape_df = counties_df[counties_df['ID'].str.contains(self.name)].copy()  #: copy to avoid chained indexing
         self.shape_df.set_index('START_DATE', inplace=True)
+        self.shape_df['START_DATE'] = self.shape_df.index  #: re-add start date for output data
         self.shape_df.sort_index(inplace=True)
 
         #: create a local district dataframe of just the county, change the index to the start date of each version
@@ -157,31 +192,31 @@ class County:
             #: Get the district key for this date
             for district_row in self.district_df.itertuples():
                 if change_date.date >= district_row.Index and change_date.date <= district_row.EndDate:
-                    change_date.district = district_row.NewDistrict
+                    change_date.district_number = district_row.NewDistrict
+                    change_date.district_version = district_row.district_key
                     break
 
         #: Now we can use a namedtuple to translate our object to dataframe rows
         #: (Didn't use one at first because we had to alter the list of ChangeDate items in the iterations)
-        ChangeDatesTuple = namedtuple('ChangeDatesTuple', 'date county_name county_version district')
-        new_dates = [ChangeDatesTuple(cd.date, cd.county_name, cd.county_version, cd.district) for cd in change_dates]
+        ChangeDatesTuple = namedtuple(
+            'ChangeDatesTuple', 'date county_name county_version district_number district_version'
+        )
+        new_dates = [
+            ChangeDatesTuple(cd.date, cd.county_name, cd.county_version, cd.district_number, cd.district_version)
+            for cd in change_dates
+        ]
         self.change_dates_df = pd.DataFrame(new_dates)
+
+        #: End date is one day before the next rows start date
         self.change_dates_df['end_date'] = self.change_dates_df['date'].shift(-1) - pd.Timedelta(days=1)
 
     def copy_geometries_into_change_dates(self):
-        self.joined_df = pd.merge(
+        first_join = pd.merge(
             self.change_dates_df, self.shape_df, left_on='county_version', right_on='county_key', validate='m:1'
         )
-        self.joined_df.drop([
-            'FID',
-            'Shape',
-            'STATE',
-            'START_N',
-            'END_N',
-            'AREA_SQMI',
-            'DATASET',
-        ],
-                            axis='columns',
-                            inplace=True)
+        self.joined_df = pd.merge(
+            first_join, self.district_df, left_on='district_version', right_on='district_key', validate='m:1'
+        )
 
     def test_county_districts(self):
         """Test the districts for this county.
