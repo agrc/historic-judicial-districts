@@ -21,6 +21,25 @@ def clean_name(name):
     return cleaned_name
 
 
+def nulls_to_nones(row):
+    """Replace any pandas null values in a list with None
+
+    Args:
+        row (List): Row of data as a list of arbitrary objects
+
+    Returns:
+        List: List of data appropriately cleaned.
+    """
+
+    new_row = []
+    for item in row:
+        if pd.isnull(item):
+            new_row.append(None)
+        else:
+            new_row.append(item)
+    return new_row
+
+
 class ChangeDate:
     """Holds information about unique dates when either shape or district change
 
@@ -65,9 +84,9 @@ class State:
     def __init__(self):
         self.counties_df = None
         self.districts_df = None
-        self.counties = []  #: list of County objects
-        self.combined_change_df = None  #: pd.DataFrame of all the different change dates
-        self.output_df = None  #: pd.DataFrame of all change dates with geometries joined on county_key
+        self.counties = []
+        self.combined_change_df = None
+        self.output_df = None
 
     def load_counties(self, counties_shp):
         """Read historical boundaries shapefile into counties_df
@@ -185,38 +204,42 @@ class State:
         arcpy.management.CreateFeatureclass(out_gdb, out_name, 'POLYGON', spatial_reference=template_prj)
 
         new_fields = [
-            ['NAME', 'TEXT'],  #: shp NAME
-            ['ID', 'TEXT'],  #: shp ID
-            ['FIPS', 'TEXT'],  #: shp FIPS
-            ['SHP_VERSION', 'TEXT'],  #: shp VERSION
-            ['DST_NUMBER', 'TEXT'],  #: change_df district
-            ['SHP_START_DATE', 'DATE'],  #: shp START_DATE
-            ['SHP_END_DATE', 'DATE'],  #: shp END_DATE
-            ['DST_START_DATE', 'DATE'],  #: change_df date
-            ['DST_END_DATE', 'DATE'],  #: change_df end_date
-            ['SHP_CHANGE', 'TEXT'],  #: shp CHANGE
-            ['SHP_CITATION', 'TEXT'],  #: shp CITATION
-            ['SHP_AREA_SQMI', 'DOUBLE'],  #: shp AREA_SQMI
-            ['SHP_KEY', 'TEXT'],  #: change_df county_key
-            ['DST_KEY', 'TEXT'],  #: change_df district_key
+            ['CHANGE_DATE', 'DATE'],  #: change_df name
+            ['CHANGE_ID', 'TEXT'],  #: change_df county_name
+            ['SHP_NAME', 'TEXT'],  #: shape_df NAME
+            ['SHP_ID', 'TEXT'],  #: shape_df ID
+            ['SHP_FIPS', 'TEXT'],  #: shape_df FIPS
+            ['SHP_VERSION', 'TEXT'],  #: shape_df VERSION
+            ['DST_NUMBER', 'TEXT'],  #: district_df district
+            ['SHP_START_DATE', 'DATE'],  #: shape_df START_DATE
+            ['SHP_END_DATE', 'DATE'],  #: shape_df END_DATE
+            ['DST_START_DATE', 'DATE'],  #: district_df date
+            ['DST_END_DATE', 'DATE'],  #: district_df end_date
+            ['SHP_CHANGE', 'TEXT'],  #: shape_df CHANGE
+            ['SHP_CITATION', 'TEXT'],  #: shape_df CITATION
+            ['SHP_AREA_SQMI', 'DOUBLE'],  #: shape_df AREA_SQMI
+            ['SHP_KEY', 'TEXT'],  #: shape_df county_key
+            ['DST_KEY', 'TEXT'],  #: district_df district_key
         ]
 
         df_renamer = {
-            'NAME': 'NAME',
-            'ID': 'ID',
-            'FIPS': 'FIPS',
+            'NAME': 'SHP_NAME',
+            'ID': 'SHP_ID',
+            'FIPS': 'SHP_FIPS',
             'VERSION': 'SHP_VERSION',
             'START_DATE': 'SHP_START_DATE',
             'END_DATE': 'SHP_END_DATE',
             'CHANGE': 'SHP_CHANGE',
             'CITATION': 'SHP_CITATION',
             'AREA_SQMI': 'SHP_AREA_SQMI',
-            'date': 'DST_START_DATE',
-            'end_date': 'DST_END_DATE',
+            'StartDate': 'DST_START_DATE',
+            'EndDate': 'DST_END_DATE',
             'district_number': 'DST_NUMBER',
             'county_key': 'SHP_KEY',
             'district_key': 'DST_KEY',
             'SHAPE@': 'SHAPE@',
+            'date': 'CHANGE_DATE',
+            'county_name': 'CHANGE_ID'
         }
 
         arcpy.management.AddFields(out_path, new_fields)
@@ -228,7 +251,7 @@ class State:
         cursor_fields = df_renamer.values()  #: Only look at the renamed columns
         with arcpy.da.InsertCursor(out_path, list(cursor_fields)) as insert_cursor:
             for row in renamed_df[cursor_fields].values.tolist():
-                insert_cursor.insertRow(row)
+                insert_cursor.insertRow(nulls_to_nones(row))
 
 
 class County:
@@ -248,10 +271,10 @@ class County:
 
     def __init__(self, name):
         self.name = name
-        self.shape_df = None  #: All entries for this county in the historical county shape/geography dataframe
-        self.district_df = None  #: All entries for this county in the historical district composition dataframe
-        self.change_dates_df = None  #: The change dates with corresponding district and shape versions
-        self.joined_df = None  #: change_dates_df merged with shape_df on county key
+        self.shape_df = None
+        self.district_df = None
+        self.change_dates_df = None
+        self.joined_df = None
 
     def setup(self, counties_df, districts_df):
         """Copy out and format the dataframe entries specific to this county
@@ -270,6 +293,7 @@ class County:
         #: create a local district dataframe of just the county, change the index to the start date of each version
         self.district_df = districts_df[districts_df['CountyName'].str.contains(self.name, case=False)].copy()
         self.district_df.set_index('StartDate', inplace=True)
+        self.district_df['StartDate'] = self.district_df.index  #: re-add start date for output data
         self.district_df.sort_index(inplace=True)
 
     def calc_change_dates(self):
@@ -285,6 +309,7 @@ class County:
 
         for change_date in change_dates:
             change_date.county_name = self.name
+
             #: Get the county key for this date
             for county_row in self.shape_df.itertuples():
                 if change_date.date >= county_row.Index and change_date.date <= county_row.END_DATE:
@@ -309,7 +334,7 @@ class County:
         self.change_dates_df = pd.DataFrame(new_dates)
 
         #: End date is one day before the next rows start date
-        self.change_dates_df['end_date'] = self.change_dates_df['date'].shift(-1) - pd.Timedelta(days=1)
+        self.change_dates_df['change_end_date'] = self.change_dates_df['date'].shift(-1) - pd.Timedelta(days=1)
 
     def copy_geometries_into_change_dates(self):
         """Add geometries back into change date dataframe
@@ -319,10 +344,20 @@ class County:
         """
 
         first_join = pd.merge(
-            self.change_dates_df, self.shape_df, left_on='county_version', right_on='county_key', validate='m:1'
+            self.change_dates_df,
+            self.shape_df,
+            how='left',
+            left_on='county_version',
+            right_on='county_key',
+            validate='m:1'
         )
         self.joined_df = pd.merge(
-            first_join, self.district_df, left_on='district_version', right_on='district_key', validate='m:1'
+            first_join,
+            self.district_df,
+            how='left',
+            left_on='district_version',
+            right_on='district_key',
+            validate='m:1'
         )
 
     def verify_county_districts(self):
