@@ -6,6 +6,15 @@ import pandas as pd
 
 
 def clean_name(name):
+    """Reformat name to better match format in the historic county boundaries shapefile
+
+    Args:
+        name (str): A name to clean
+
+    Returns:
+        str: name casefolded with spaces and periods removed
+    """
+
     cleaned_name = name.casefold()
     cleaned_name = cleaned_name.replace(' ', '')
     cleaned_name = cleaned_name.replace('.', '')
@@ -13,6 +22,15 @@ def clean_name(name):
 
 
 class ChangeDate:
+    """Holds information about unique dates when either shape or district change
+
+    Attributes:
+        date (datetime): The start date for a new shape or district version
+        county_name (str): Name of the county, cleaned.
+        county_version (str): County join key, 'uts_<name>_S<version>'
+        district_number (str): District number (includes '1S' and '1N')
+        district_version (str): District join key, '<name>_D<version>'
+    """
 
     def __init__(self, date):
         self.date = date
@@ -29,6 +47,20 @@ class ChangeDate:
 
 
 class State:
+    """Contains statewide data and methods to operate over all counties.
+
+    Attributes:
+        counties_df (pd.DataFrame): Dataframe of the historic boundaries
+            shapefile.
+        districts_df (pd.DataFrame): Counties and their assigned districts
+            over time.
+        counties (List[County]): Objects for each unique county in
+            districts_df.
+        combined_change_df (pd.DataFrame): Change dates from all the
+            different counties.
+        output_df (pd.DataFrame): Final data with geometries and other info
+            from counties_df/districts_df merged into change dates.
+    """
 
     def __init__(self):
         self.counties_df = None
@@ -38,6 +70,13 @@ class State:
         self.output_df = None  #: pd.DataFrame of all change dates with geometries joined on county_key
 
     def load_counties(self, counties_shp):
+        """Read historical boundaries shapefile into counties_df
+
+        Calculates a key based on ID and VERSION fields.
+
+        Args:
+            counties_shp (str): Path to the historical boundaries shapefile
+        """
 
         #: Read counties shapefile in as dict, transform dict to dataframe
         print(f'Loading counties from {counties_shp}...')
@@ -53,6 +92,14 @@ class State:
         self.counties_df['county_key'] = self.counties_df['ID'] + '_S' + self.counties_df['VERSION'].astype(str)
 
     def load_districts(self, districts_csv):
+        """Read historical district info into districts_df.
+
+        Cleans name with clean_name(), parses dates, and calculates district
+        key from CountyName and Versin fields.
+
+        Args:
+            districts_csv (str): Path to the historical districts data
+        """
 
         print(f'Loading districts from {districts_csv}...')
         self.districts_df = pd.read_csv(districts_csv)
@@ -70,7 +117,9 @@ class State:
         )
 
     def setup_counties(self):
-        #: Get a list of counties from the districts data frame and load them in as County objects
+        """Get a list of counties from districts_df and load them in as County objects.
+        """
+
         county_names = self.districts_df['CountyName'].unique()
         for name in county_names:
             print(f'Setting up {name}...')
@@ -79,22 +128,34 @@ class State:
             self.counties.append(county)
 
     def verify_counties(self):
+        """Run verification code against shapes and districts
+        """
+
         for county in self.counties:
             print(f'\n--- {county.name} ---')
             county.verify_county_districts()
             county.verify_county_shapes()
 
     def calc_counties(self):
+        """Calculate unique change dates for each county
+        """
+
         for county in self.counties:
             county.calc_change_dates()
 
-    def combine_change_dfs(self, out_path):
+    def combine_change_dfs(self, out_path=None):
+        """Combine all individual county change dates into one dataframe.
+
+        Args:
+            out_path (str, optional): Path to save master change dates
+                dataframe as csv if desired.
+        """
         self.combined_change_df = pd.DataFrame()  #columns=['date', 'county_version', 'district'])
         for county in self.counties:
             self.combined_change_df = self.combined_change_df.append(county.change_dates_df)
-        self.combined_change_df.to_csv(out_path)
+        if out_path:
+            self.combined_change_df.to_csv(out_path)
 
-    #: TODO: sort out paths
     def insert_geometries(self, out_path, template_shp):
         print('Coying geometries into change dates...')
         self.output_df = pd.DataFrame()
@@ -156,6 +217,19 @@ class State:
 
 
 class County:
+    """Data and processing for a specific county within the total dataset.
+
+    Attributes:
+        name (str): County's name, lowercased and spaces/periods removed
+        shape_df (pd.DataFrame): Information from the shapefile about
+            the different historical geomtries involved.
+        district_df (pd.DataFrame): Information about the different
+            district designations over time.
+        change_dates_df (pd.DataFrame): Information about each unique date
+            when either a shape or district changes (or both).
+        joined_df (pd.DataFrame): change_dates_df with shape_df and
+            district_df joined back in for each row.
+    """
 
     def __init__(self, name):
         self.name = name
@@ -165,6 +239,13 @@ class County:
         self.joined_df = None  #: change_dates_df merged with shape_df on county key
 
     def setup(self, counties_df, districts_df):
+        """Copy out and format the dataframe entries specific to this county
+
+        Args:
+            counties_df (pd.DataFrame): Main counties geometry dataframe
+            districts_df (pd.DataFrame): Main counties districts dataframe
+        """
+
         #: create a local shape dataframe of just the county, change the index to the start date of each version
         self.shape_df = counties_df[counties_df['ID'].str.contains(self.name)].copy()  #: copy to avoid chained indexing
         self.shape_df.set_index('START_DATE', inplace=True)
@@ -177,6 +258,11 @@ class County:
         self.district_df.sort_index(inplace=True)
 
     def calc_change_dates(self):
+        """Create a data structure of all the dates when either a geometry or district changes
+
+        For each change, note the current county version, district number, and district version by checking against
+        their start and end dates.
+        """
 
         #: Get a list of ChangeDate objects for all the dates for this county
         dates = list(pd.Series(self.shape_df.index.union(self.district_df.index)))
@@ -211,6 +297,12 @@ class County:
         self.change_dates_df['end_date'] = self.change_dates_df['date'].shift(-1) - pd.Timedelta(days=1)
 
     def copy_geometries_into_change_dates(self):
+        """Add geometries back into change date dataframe
+
+        Joins the shape and district dataframes to the change date data to
+        add geometries and other relevant info for each change date.
+        """
+
         first_join = pd.merge(
             self.change_dates_df, self.shape_df, left_on='county_version', right_on='county_key', validate='m:1'
         )
@@ -219,7 +311,7 @@ class County:
         )
 
     def verify_county_districts(self):
-        """Test the districts for this county.
+        """Verify the districts for this county.
 
         For each row, make sure a) no gaps between StartDate (index) and previous row's EndDate and
         b) row's OldDistrict is previous row's NewDistrict
@@ -239,7 +331,7 @@ class County:
         print(sorted_district_df)
 
     def verify_county_shapes(self):
-        """Test the shapes for this county.
+        """Verify the shapes for this county.
 
         For each row, make sure there are no gaps between START_DATE (index) and previous row's END_DATE.
         """
