@@ -156,12 +156,27 @@ class State:
         if out_path:
             self.combined_change_df.to_csv(out_path)
 
-    def insert_geometries(self, out_path, template_shp):
+    def insert_geometries(self):
+        """Join shape/counties_df back into change dates to get relevant info
+        """
+
         print('Coying geometries into change dates...')
         self.output_df = pd.DataFrame()
         for county in self.counties:
             county.copy_geometries_into_change_dates()
             self.output_df = self.output_df.append(county.joined_df)
+
+    def output_to_featureclass(self, out_path, template_shp):
+        """Write final data in output_df out to specified feature class.
+
+        Manually sets the output fields and then copies/renames the dataframe
+        columns to match these field names.
+
+        Args:
+            out_path (str): Path to a feature class (can not exist already)
+            template_shp (str): Path to the historical boundaries shapefile
+                for projection info.
+        """
 
         print(f'Creating output {out_path}...')
         out_gdb = str(Path(out_path).parent)
