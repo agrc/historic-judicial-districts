@@ -78,11 +78,11 @@ class State:
             county.setup(self.counties_df, self.districts_df)
             self.counties.append(county)
 
-    def test_counties(self):
+    def verify_counties(self):
         for county in self.counties:
             print(f'\n--- {county.name} ---')
-            county.test_county_districts()
-            county.test_county_shapes()
+            county.verify_county_districts()
+            county.verify_county_shapes()
 
     def calc_counties(self):
         for county in self.counties:
@@ -218,7 +218,7 @@ class County:
             first_join, self.district_df, left_on='district_version', right_on='district_key', validate='m:1'
         )
 
-    def test_county_districts(self):
+    def verify_county_districts(self):
         """Test the districts for this county.
 
         For each row, make sure a) no gaps between StartDate (index) and previous row's EndDate and
@@ -238,7 +238,7 @@ class County:
 
         print(sorted_district_df)
 
-    def test_county_shapes(self):
+    def verify_county_shapes(self):
         """Test the shapes for this county.
 
         For each row, make sure there are no gaps between START_DATE (index) and previous row's END_DATE.

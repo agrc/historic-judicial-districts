@@ -24,7 +24,7 @@ def main():
     state.combine_change_dfs(change_dates_csv)
     state.insert_geometries(output_fc, counties_shp)
 
-    # state.test_counties()
+    # state.verify_counties()
 
 
 if __name__ == '__main__':
