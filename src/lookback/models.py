@@ -258,7 +258,7 @@ class County:
     """Data and processing for a specific county within the total dataset.
 
     Attributes:
-        name (str): County's name, lowercased and spaces/periods removed
+        name (str): County's name from districts_df, lowercased and spaces/periods removed
         shape_df (pd.DataFrame): Information from the shapefile about
             the different historical geomtries involved.
         district_df (pd.DataFrame): Information about the different
@@ -311,16 +311,25 @@ class County:
             change_date.county_name = self.name
 
             #: Get the county key for this date
-            for county_row in self.shape_df.itertuples():
-                if change_date.date >= county_row.Index and change_date.date <= county_row.END_DATE:
-                    change_date.county_version = county_row.county_key
+            shape_df_rows = [row for row in self.shape_df.itertuples()]
+            for shape_row in shape_df_rows:
+                if change_date.date >= shape_row.START_DATE and change_date.date <= shape_row.END_DATE:
+                    change_date.county_version = shape_row.county_key
                     break
+
             #: Get the district key for this date
-            for district_row in self.district_df.itertuples():
-                if change_date.date >= district_row.Index and change_date.date <= district_row.EndDate:
+            district_df_rows = [row for row in self.district_df.itertuples()]
+
+            for district_row in district_df_rows:
+                if change_date.date >= district_row.StartDate and change_date.date <= district_row.EndDate:
                     change_date.district_number = district_row.NewDistrict
                     change_date.district_version = district_row.district_key
                     break
+                #: If we've gotten to the end of the district rows without breaking, and it doesn't have an end date,
+                #: assume that it should be added
+                if district_row == district_df_rows[-1] and pd.isnull(district_row.EndDate):
+                    change_date.district_number = district_row.NewDistrict
+                    change_date.district_version = district_row.district_key
 
         #: Now we can use a namedtuple to translate our object to dataframe rows
         #: (Didn't use one at first because we had to alter the list of ChangeDate items in the iterations)
@@ -339,8 +348,8 @@ class County:
     def copy_geometries_into_change_dates(self):
         """Add geometries back into change date dataframe
 
-        Joins the shape and district dataframes to the change date data to
-        add geometries and other relevant info for each change date.
+        Joins the shape and district dataframes to the change date data to add geometries and other relevant info for
+        each change date.
         """
 
         first_join = pd.merge(
