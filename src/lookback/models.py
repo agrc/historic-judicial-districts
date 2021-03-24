@@ -319,15 +319,23 @@ class County:
 
             #: Get the district key for this date
             district_df_rows = [row for row in self.district_df.itertuples()]
+            first_district_date = district_df_rows[0].StartDate
 
             for district_row in district_df_rows:
+                #: Get the earliest start date
+                if district_row.StartDate < first_district_date:
+                    first_district_date = district_row.StartDate
+
                 if change_date.date >= district_row.StartDate and change_date.date <= district_row.EndDate:
                     change_date.district_number = district_row.NewDistrict
                     change_date.district_version = district_row.district_key
                     break
                 #: If we've gotten to the end of the district rows without breaking, and it doesn't have an end date,
-                #: assume that it should be added
-                if district_row == district_df_rows[-1] and pd.isnull(district_row.EndDate):
+                #and it's after the first date district date, assume that it is the final district and should be added
+                if (
+                    district_row == district_df_rows[-1] and pd.isnull(district_row.EndDate) and
+                    change_date.date > first_district_date
+                ):
                     change_date.district_number = district_row.NewDistrict
                     change_date.district_version = district_row.district_key
 
