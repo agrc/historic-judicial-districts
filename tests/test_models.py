@@ -126,3 +126,19 @@ def test_change_dates_change_district_change_shape_no_district_end_date(mocker, 
     assert county.change_dates_df.loc[5, test_columns].values.tolist() == [
         np.datetime64('2020-03-01'), 'co', 'uts_co_S4', '4', 'co_D4'
     ]
+
+
+def test_cleaned_name_spaces():
+    assert models.clean_name('name with spaces') == 'namewithspaces'
+
+
+def test_cleaned_name_casing():
+    assert models.clean_name('ProperCased') == 'propercased'
+
+
+def test_cleaned_name_period():
+    assert models.clean_name('middle.period') == 'middleperiod'
+
+
+def test_cleaned_name_all_in():
+    assert models.clean_name('St. Marys') == 'stmarys'
