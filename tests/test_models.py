@@ -128,20 +128,24 @@ def test_change_dates_change_district_change_shape_no_district_end_date(mocker, 
     ]
 
 
-def test_cleaned_name_spaces():
-    assert models.clean_name('name with spaces') == 'namewithspaces'
+def test_shapefile_uts_to_county_key():
+    assert models.create_county_key('uts_saltlake') == 'saltlake'
 
 
-def test_cleaned_name_casing():
-    assert models.clean_name('ProperCased') == 'propercased'
+def test_shapefile_utt_to_county_key():
+    assert models.create_county_key('utt_shambip') == 'shambip'
 
 
-def test_cleaned_name_period():
-    assert models.clean_name('middle.period') == 'middleperiod'
+def test_shapefile_ter_to_county_key():
+    assert models.create_county_key('utt') == 'utt'
 
 
-def test_cleaned_name_all_in():
-    assert models.clean_name('St. Marys') == 'stmarys'
+def test_district_complex_to_county_key():
+    assert models.create_county_key('St. Marys') == 'stmarys'
+
+
+def test_richland_rename_county_key():
+    assert models.create_county_key('Richland') == 'rich'
 
 
 def test_nulls_to_none():
