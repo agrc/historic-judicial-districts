@@ -5,19 +5,21 @@ import arcpy
 import pandas as pd
 
 
-def clean_name(name):
-    """Reformat name to better match format in the historic county boundaries shapefile
+def create_county_key(name):
+    """Creates a properly-formatted county key from name. May rename to match current county names.
 
     Args:
-        name (str): A name to clean
+        name (str): Name from either the boundaries shapefile's ID field or the district's name field
 
     Returns:
-        str: name casefolded with spaces and periods removed
+        str: name stripped from any prepended 'xyz_', whitespace, and periods.
     """
 
-    cleaned_name = name.casefold()
-    cleaned_name = cleaned_name.replace(' ', '')
-    cleaned_name = cleaned_name.replace('.', '')
+    cleaned_name = name.split('_')[-1].casefold().replace(' ', '').replace('.', '')
+
+    if cleaned_name == 'richland':
+        cleaned_name = 'rich'
+
     return cleaned_name
 
 
@@ -82,8 +84,8 @@ class State:
     """
 
     def __init__(self):
-        self.counties_df = None
-        self.districts_df = None
+        self.all_shapes_df = None
+        self.all_districts_df = None
         self.counties = []
         self.combined_change_df = None
         self.output_df = None
@@ -105,45 +107,48 @@ class State:
         with arcpy.da.SearchCursor(counties_shp, county_fields) as search_cursor:
             for row in search_cursor:
                 counties_list.append(dict(zip(county_fields, row)))
-        self.counties_df = pd.DataFrame(counties_list)
+        self.all_shapes_df = pd.DataFrame(counties_list)
 
-        #: Create county key- name_Sx
-        self.counties_df['county_key'] = self.counties_df['ID'] + '_S' + self.counties_df['VERSION'].astype(str)
+        #: Create shape key- name_Sx
+        self.all_shapes_df['shape_key'] = self.all_shapes_df['ID'] + '_S' + self.all_shapes_df['VERSION'].astype(str)
+
+        #: Create county key
+        self.all_shapes_df['county_key'] = self.all_shapes_df['ID'].apply(create_county_key)
 
     def load_districts(self, districts_csv):
         """Read historical district info into districts_df.
 
         Cleans name with clean_name(), parses dates, and calculates district
-        key from CountyName and Versin fields.
+        key from CountyName and Version fields.
 
         Args:
             districts_csv (str): Path to the historical districts data
         """
 
         print(f'Loading districts from {districts_csv}...')
-        self.districts_df = pd.read_csv(districts_csv)
+        self.all_districts_df = pd.read_csv(districts_csv)
 
-        #: change name to better match the county shapefile id
-        self.districts_df['CountyName'] = self.districts_df['CountyName'].apply(clean_name)
+        #: Create ID column to better match the county shapefile id
+        self.all_districts_df['county_key'] = self.all_districts_df['CountyName'].apply(create_county_key)
 
         #: Clean up dates
-        self.districts_df['StartDate'] = pd.to_datetime(self.districts_df['StartDate'])
-        self.districts_df['EndDate'] = pd.to_datetime(self.districts_df['EndDate'])
+        self.all_districts_df['StartDate'] = pd.to_datetime(self.all_districts_df['StartDate'])
+        self.all_districts_df['EndDate'] = pd.to_datetime(self.all_districts_df['EndDate'])
 
         #: Create district key- name_Dx
-        self.districts_df['district_key'] = (
-            self.districts_df['CountyName'].str.casefold() + '_D' + self.districts_df['Version'].astype(str)
+        self.all_districts_df['district_key'] = (
+            self.all_districts_df['CountyName'].str.casefold() + '_D' + self.all_districts_df['Version'].astype(str)
         )
 
     def setup_counties(self):
         """Get a list of counties from districts_df and load them in as County objects.
         """
 
-        county_names = self.districts_df['CountyName'].unique()
+        county_names = self.all_districts_df['county_key'].unique()
         for name in county_names:
             print(f'Setting up {name}...')
             county = County(name)
-            county.setup(self.counties_df, self.districts_df)
+            county.setup(self.all_shapes_df, self.all_districts_df)
             self.counties.append(county)
 
     def verify_counties(self):
@@ -204,11 +209,12 @@ class State:
         arcpy.management.CreateFeatureclass(out_gdb, out_name, 'POLYGON', spatial_reference=template_prj)
 
         new_fields = [
-            ['CHANGE_DATE', 'DATE'],  #: change_df name
-            ['CHANGE_ID', 'TEXT'],  #: change_df county_name
+            ['CHANGE_DATE', 'DATE'],  #: change_df date
+            ['COUNTY_KEY', 'TEXT'],  #: change_df county_name
             ['SHP_NAME', 'TEXT'],  #: shape_df NAME
             ['SHP_ID', 'TEXT'],  #: shape_df ID
             ['SHP_FIPS', 'TEXT'],  #: shape_df FIPS
+            ['DST_NAME', 'TEXT'],  #: district_df CountyName
             ['SHP_VERSION', 'TEXT'],  #: shape_df VERSION
             ['DST_NUMBER', 'TEXT'],  #: district_df district
             ['SHP_START_DATE', 'DATE'],  #: shape_df START_DATE
@@ -218,7 +224,7 @@ class State:
             ['SHP_CHANGE', 'TEXT'],  #: shape_df CHANGE
             ['SHP_CITATION', 'TEXT'],  #: shape_df CITATION
             ['SHP_AREA_SQMI', 'DOUBLE'],  #: shape_df AREA_SQMI
-            ['SHP_KEY', 'TEXT'],  #: shape_df county_key
+            ['SHP_KEY', 'TEXT'],  #: shape_df shape_key
             ['DST_KEY', 'TEXT'],  #: district_df district_key
         ]
 
@@ -235,11 +241,12 @@ class State:
             'StartDate': 'DST_START_DATE',
             'EndDate': 'DST_END_DATE',
             'district_number': 'DST_NUMBER',
-            'county_key': 'SHP_KEY',
+            'shape_key': 'SHP_KEY',
             'district_key': 'DST_KEY',
             'SHAPE@': 'SHAPE@',
             'date': 'CHANGE_DATE',
-            'county_name': 'CHANGE_ID'
+            'county_name': 'COUNTY_KEY',
+            'CountyName': 'DST_NAME',
         }
 
         arcpy.management.AddFields(out_path, new_fields)
@@ -252,6 +259,8 @@ class State:
         with arcpy.da.InsertCursor(out_path, list(cursor_fields)) as insert_cursor:
             for row in renamed_df[cursor_fields].values.tolist():
                 insert_cursor.insertRow(nulls_to_nones(row))
+
+        renamed_df.to_pickle(r'C:\gis\Projects\HistoricCounties\Data\JudicialDistricts\renamed_df.pickle')
 
 
 class County:
@@ -285,13 +294,14 @@ class County:
         """
 
         #: create a local shape dataframe of just the county, change the index to the start date of each version
-        self.shape_df = counties_df[counties_df['ID'].str.contains(self.name)].copy()  #: copy to avoid chained indexing
+        self.shape_df = counties_df[counties_df['county_key'].str.contains(self.name
+                                                                          )].copy()  #: copy to avoid chained indexing
         self.shape_df.set_index('START_DATE', inplace=True)
         self.shape_df['START_DATE'] = self.shape_df.index  #: re-add start date for output data
         self.shape_df.sort_index(inplace=True)
 
         #: create a local district dataframe of just the county, change the index to the start date of each version
-        self.district_df = districts_df[districts_df['CountyName'].str.contains(self.name, case=False)].copy()
+        self.district_df = districts_df[districts_df['county_key'].str.contains(self.name)].copy()
         self.district_df.set_index('StartDate', inplace=True)
         self.district_df['StartDate'] = self.district_df.index  #: re-add start date for output data
         self.district_df.sort_index(inplace=True)
@@ -314,7 +324,7 @@ class County:
             shape_df_rows = [row for row in self.shape_df.itertuples()]
             for shape_row in shape_df_rows:
                 if change_date.date >= shape_row.START_DATE and change_date.date <= shape_row.END_DATE:
-                    change_date.county_version = shape_row.county_key
+                    change_date.county_version = shape_row.shape_key
                     break
 
             #: Get the district key for this date
@@ -365,7 +375,7 @@ class County:
             self.shape_df,
             how='left',
             left_on='county_version',
-            right_on='county_key',
+            right_on='shape_key',
             validate='m:1'
         )
         self.joined_df = pd.merge(
