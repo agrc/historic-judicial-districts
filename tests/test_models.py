@@ -292,6 +292,147 @@ def test_county_setup_richland_into_rich(mocker):
 
 
 @pytest.fixture
+def change_dates_df():
+    change_dates_df = pd.DataFrame(
+        data={
+            'date': ['2020-02-05', '2020-02-10', '2020-02-15', '2020-02-20', '2020-02-25', '2020-03-01'],
+            'county_name': ['co', 'co', 'co', 'co', 'co', 'co'],
+            'county_version': ['uts_co_S1', 'uts_co_S1', 'uts_co_S1', 'uts_co_S2', 'uts_co_S3', 'uts_co_S4'],
+            'district_number': ['n/a', '1', '2', '2', '3', '4'],
+            'district_version': ['n/a', 'co_D1', 'co_D2', 'co_D2', 'co_D3', 'co_D4'],
+            'change_end_date': ['2020-02-09', '2020-02-14', '2020-02-19', '2020-02-24', '2020-02-29', None],
+        }
+    )
+    change_dates_df['date'] = pd.to_datetime(change_dates_df['date'])
+    change_dates_df['change_end_date'] = pd.to_datetime(change_dates_df['change_end_date'])
+
+    return change_dates_df
+
+
+def test_join_shapes_and_districts_basic_check(mocker, change_dates_df, shape_data, district_data):
+
+    county_mock = mocker.Mock(spec=models.County)
+    county_mock.change_dates_df = change_dates_df
+    county_mock.shape_df = shape_data
+    county_mock.district_df = district_data
+
+    models.County.join_shapes_and_districts(county_mock)
+
+    assert county_mock.joined_df.loc[1, :].values.tolist() == [
+        #: change_dates_df
+        np.datetime64('2020-02-10'),
+        'co',
+        'uts_co_S1',
+        '1',
+        'co_D1',
+        np.datetime64('2020-02-14'),
+        #: shape_df
+        'uts_co_S1',
+        np.datetime64('2020-02-05'),
+        np.datetime64('2020-02-19'),
+        #: district_df
+        '1',
+        'co_D1',
+        np.datetime64('2020-02-10'),
+        np.datetime64('2020-02-14'),
+    ]
+
+
+def test_join_shapes_and_districts_no_district(mocker, change_dates_df, shape_data, district_data):
+
+    county_mock = mocker.Mock(spec=models.County)
+    county_mock.change_dates_df = change_dates_df
+    county_mock.shape_df = shape_data
+    county_mock.district_df = district_data
+
+    models.County.join_shapes_and_districts(county_mock)
+
+    assert models.nulls_to_nones(county_mock.joined_df.loc[0, :].values.tolist()) == [
+        #: change_dates_df
+        np.datetime64('2020-02-05'),
+        'co',
+        'uts_co_S1',
+        'n/a',
+        'n/a',
+        np.datetime64('2020-02-09'),
+        #: shape_df
+        'uts_co_S1',
+        np.datetime64('2020-02-05'),
+        np.datetime64('2020-02-19'),
+        #: district_df should be all Nones thanks to nulls_to_nones()
+        None,
+        None,
+        None,
+        None,
+    ]
+
+
+def test_join_shapes_and_districts_no_shape(mocker):
+
+    county_mock = mocker.Mock(spec=models.County)
+
+    #: Set up shape data
+    county_mock.shape_df = pd.DataFrame(
+        data={
+            'shape_key': ['uts_co_S1', 'uts_co_S2'],
+            'START_DATE': ['2020-02-05', '2020-02-20'],
+            'END_DATE': ['2020-02-19', '2020-02-24'],
+        },
+    )
+    county_mock.shape_df['END_DATE'] = pd.to_datetime(county_mock.shape_df['END_DATE'])
+    county_mock.shape_df['START_DATE'] = pd.to_datetime(county_mock.shape_df['START_DATE'])
+    county_mock.shape_df.set_index('START_DATE', drop=False, inplace=True)
+
+    #: Set up district data
+    county_mock.district_df = pd.DataFrame(
+        data={
+            'NewDistrict': ['1', '2', '3'],
+            'district_key': ['co_D1', 'co_D2', 'co_D3'],
+            'StartDate': ['2020-02-01', '2020-02-05', '2020-02-20'],
+            'EndDate': ['2020-02-04', '2020-02-19', None],
+        },
+    )
+    county_mock.district_df['StartDate'] = pd.to_datetime(county_mock.district_df['StartDate'])
+    county_mock.district_df['EndDate'] = pd.to_datetime(county_mock.district_df['EndDate'])
+    county_mock.district_df.set_index('StartDate', drop=False, inplace=True)
+
+    #: Set up change dates data
+    county_mock.change_dates_df = pd.DataFrame(
+        data={
+            'date': ['2020-02-01', '2020-02-05', '2020-02-20'],
+            'county_name': ['co', 'co', 'co'],
+            'county_version': ['n/a', 'uts_co_S1', 'uts_co_S2'],
+            'district_number': ['1', '2', '3'],
+            'district_version': ['co_D1', 'co_D2', 'co_D3'],
+            'change_end_date': ['2020-02-04', '2020-02-19', None],
+        }
+    )
+    county_mock.change_dates_df['date'] = pd.to_datetime(county_mock.change_dates_df['date'])
+    county_mock.change_dates_df['change_end_date'] = pd.to_datetime(county_mock.change_dates_df['change_end_date'])
+
+    models.County.join_shapes_and_districts(county_mock)
+
+    assert models.nulls_to_nones(county_mock.joined_df.loc[0, :].values.tolist()) == [
+        #: change_dates_df
+        np.datetime64('2020-02-01'),
+        'co',
+        'n/a',
+        '1',
+        'co_D1',
+        np.datetime64('2020-02-04'),
+        #: shape_df should be all Nones thanks to nulls_to_nones()
+        None,
+        None,
+        None,
+        #: district_df
+        '1',
+        'co_D1',
+        np.datetime64('2020-02-01'),
+        np.datetime64('2020-02-04'),
+    ]
+
+
+@pytest.fixture
 def names_shape_data():
     shape_df = pd.DataFrame(
         data={
@@ -328,16 +469,16 @@ def names_district_data():
 
 
 #: TODO: this test is not telling me anything useful right now...
-def test_setup_both_rich_names_into_rich(names_shape_data, names_district_data):
-    test_state = models.State()
-    test_state.counties_df = names_shape_data
-    test_state.districts_df = names_district_data
-    test_state.setup_counties()
+# def test_setup_both_rich_names_into_rich(names_shape_data, names_district_data):
+#     test_state = models.State()
+#     test_state.counties_df = names_shape_data
+#     test_state.districts_df = names_district_data
+#     test_state.setup_counties()
 
-    # names = [county.name for county in test_state.counties]
-    # assert names == ['grand', 'rich', 'shambip']
-    rich_shapes, rich_districts = [
-        (county.shape_df, county.district_df) for county in test_state.counties if county.name == 'rich'
-    ][0]
-    assert rich_shapes.shape == (2, 3)
-    assert rich_districts.shape == (2, 2)
+#     # names = [county.name for county in test_state.counties]
+#     # assert names == ['grand', 'rich', 'shambip']
+#     rich_shapes, rich_districts = [
+#         (county.shape_df, county.district_df) for county in test_state.counties if county.name == 'rich'
+#     ][0]
+#     assert rich_shapes.shape == (2, 3)
+#     assert rich_districts.shape == (2, 2)

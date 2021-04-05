@@ -260,8 +260,6 @@ class State:
             for row in renamed_df[cursor_fields].values.tolist():
                 insert_cursor.insertRow(nulls_to_nones(row))
 
-        renamed_df.to_pickle(r'C:\gis\Projects\HistoricCounties\Data\JudicialDistricts\renamed_df.pickle')
-
 
 class County:
     """Data and processing for a specific county within the total dataset.
