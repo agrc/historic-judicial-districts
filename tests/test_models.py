@@ -233,7 +233,7 @@ def test_state_setup_richland_into_rich(mocker):
             'district_key': ['grand_D1', 'richland_D1', 'rich_D2', 'shambip_D1']
         },
     )
-    models.County = mocker.Mock()
+    mocker.patch('lookback.models.County')
     test_state = mocker.Mock()
     test_state.all_districts_df = all_districts_df
     test_state.counties = []
@@ -263,18 +263,17 @@ def test_county_setup_richland_into_rich(mocker):
         }
     )
 
-    county_mock = mocker.Mock(spec=models.County)
-    county_mock.name = 'rich'
-    models.County.setup(county_mock, all_shapes_df, all_districts_df)
+    rich = models.County('rich')
+    rich.setup(all_shapes_df, all_districts_df)
 
-    assert 'RICH' in county_mock.shape_df['NAME'].unique()
-    assert 'RICHLAND' in county_mock.shape_df['NAME'].unique()
-    assert 'SHAMBIP' not in county_mock.shape_df['NAME'].unique()
+    assert 'RICH' in rich.shape_df['NAME'].unique()
+    assert 'RICHLAND' in rich.shape_df['NAME'].unique()
+    assert 'SHAMBIP' not in rich.shape_df['NAME'].unique()
 
-    assert 'rich' in county_mock.district_df['CountyName'].unique()
-    assert 'richland' in county_mock.district_df['CountyName'].unique()
-    assert 'grand' not in county_mock.district_df['CountyName'].unique()
-    assert 'sambip' not in county_mock.district_df['CountyName'].unique()
+    assert 'rich' in rich.district_df['CountyName'].unique()
+    assert 'richland' in rich.district_df['CountyName'].unique()
+    assert 'grand' not in rich.district_df['CountyName'].unique()
+    assert 'sambip' not in rich.district_df['CountyName'].unique()
 
 
 @pytest.fixture
