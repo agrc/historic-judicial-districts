@@ -162,42 +162,6 @@ def test_nulls_to_none():
 
 
 @pytest.fixture
-def names_shape_data():
-    shape_df = pd.DataFrame(
-        data={
-            'ID': ['uts_grand', 'uts_rich', 'uts_rich', 'utt_shambip'],
-            'NAME': ['GRAND', 'RICHLAND', 'RICH', 'SHAMBIP (ext)'],
-            # 'county_key': ['uts_co_S1', 'uts_co_S2', 'uts_co_S3', 'uts_co_S4'],
-            'START_DATE': ['2020-02-05', '2020-02-20', '2020-02-25', '2020-03-01'],
-            # 'END_DATE': ['2020-02-19', '2020-02-24', '2020-02-28', '2021-01-01'],
-        },
-    )
-    # shape_df['END_DATE'] = pd.to_datetime(shape_df['END_DATE'])
-    shape_df['START_DATE'] = pd.to_datetime(shape_df['START_DATE'])
-    # shape_df.set_index('START_DATE', drop=False, inplace=True)
-
-    return shape_df
-
-
-@pytest.fixture
-def names_district_data():
-    district_df = pd.DataFrame(
-        data={
-            'CountyName': ['grand', 'rich', 'richland', 'shambip'],
-            # 'NewDistrict': ['1', '2', '3', '4'],
-            # 'district_key': ['co_D1', 'co_D2', 'co_D3', 'co_D4'],
-            'StartDate': ['2020-02-10', '2020-02-15', '2020-02-25', '2020-03-01'],
-            # 'EndDate': ['2020-02-14', '2020-02-24', '2020-02-28', None],
-        },
-    )
-    district_df['StartDate'] = pd.to_datetime(district_df['StartDate'])
-    # district_df['EndDate'] = pd.to_datetime(district_df['EndDate'])
-    # district_df.set_index('StartDate', drop=False, inplace=True)
-
-    return district_df
-
-
-@pytest.fixture
 def all_districts_df():
     district_df = pd.DataFrame(
         data={
@@ -254,6 +218,99 @@ def test_load_districts_rich(mocker, all_districts_df):
         'rich',
         'rich_D2',
     ]
+
+
+def test_state_setup_richland_into_rich(mocker):
+    all_districts_df = pd.DataFrame(
+        data={
+            'CountyName': ['grand', 'richland', 'rich', 'shambip'],
+            'StartDate': ['2020-02-10', '2020-02-15', '2020-02-25', '2020-03-01'],
+            'EndDate': ['2020-02-14', '2020-02-24', '2020-02-28', None],
+            'NewDistrict': ['1', '1', '2', '4'],
+            'OldDistrict': ['1', '1', '1', '4'],
+            'Version': ['1', '1', '2', '1'],
+            'county_key': ['grand', 'rich', 'rich', 'shambip'],
+            'district_key': ['grand_D1', 'richland_D1', 'rich_D2', 'shambip_D1']
+        },
+    )
+    models.County = mocker.Mock()
+    test_state = mocker.Mock()
+    test_state.all_districts_df = all_districts_df
+    test_state.counties = []
+    models.State.setup_counties(test_state)
+    assert len(test_state.counties) == 3
+
+
+def test_county_setup_richland_into_rich(mocker):
+    all_districts_df = pd.DataFrame(
+        data={
+            'CountyName': ['grand', 'richland', 'rich', 'shambip'],
+            'StartDate': ['2020-02-10', '2020-02-15', '2020-02-25', '2020-03-01'],
+            'EndDate': ['2020-02-14', '2020-02-24', '2020-02-28', None],
+            'NewDistrict': ['1', '1', '2', '4'],
+            'OldDistrict': ['1', '1', '1', '4'],
+            'Version': ['1', '1', '2', '1'],
+            'county_key': ['grand', 'rich', 'rich', 'shambip'],
+            'district_key': ['grand_D1', 'richland_D1', 'rich_D2', 'shambip_D1']
+        },
+    )
+    all_shapes_df = pd.DataFrame(
+        data={
+            'NAME': ['RICHLAND', 'RICH', 'SHAMBIP'],
+            'ID': ['uts_rich', 'uts_rich', 'utt_shambip'],
+            'START_DATE': ['2020-02-15', '2020-02-25', '2020-03-01'],
+            'county_key': ['rich', 'rich', 'shambip']
+        }
+    )
+
+    county_mock = mocker.Mock(spec=models.County)
+    county_mock.name = 'rich'
+    models.County.setup(county_mock, all_shapes_df, all_districts_df)
+
+    assert 'RICH' in county_mock.shape_df['NAME'].unique()
+    assert 'RICHLAND' in county_mock.shape_df['NAME'].unique()
+    assert 'SHAMBIP' not in county_mock.shape_df['NAME'].unique()
+
+    assert 'rich' in county_mock.district_df['CountyName'].unique()
+    assert 'richland' in county_mock.district_df['CountyName'].unique()
+    assert 'grand' not in county_mock.district_df['CountyName'].unique()
+    assert 'sambip' not in county_mock.district_df['CountyName'].unique()
+
+
+@pytest.fixture
+def names_shape_data():
+    shape_df = pd.DataFrame(
+        data={
+            'ID': ['uts_grand', 'uts_rich', 'uts_rich', 'utt_shambip'],
+            'NAME': ['GRAND', 'RICHLAND', 'RICH', 'SHAMBIP (ext)'],
+            # 'county_key': ['uts_co_S1', 'uts_co_S2', 'uts_co_S3', 'uts_co_S4'],
+            'START_DATE': ['2020-02-05', '2020-02-20', '2020-02-25', '2020-03-01'],
+            # 'END_DATE': ['2020-02-19', '2020-02-24', '2020-02-28', '2021-01-01'],
+        },
+    )
+    # shape_df['END_DATE'] = pd.to_datetime(shape_df['END_DATE'])
+    shape_df['START_DATE'] = pd.to_datetime(shape_df['START_DATE'])
+    # shape_df.set_index('START_DATE', drop=False, inplace=True)
+
+    return shape_df
+
+
+@pytest.fixture
+def names_district_data():
+    district_df = pd.DataFrame(
+        data={
+            'CountyName': ['grand', 'rich', 'richland', 'shambip'],
+            # 'NewDistrict': ['1', '2', '3', '4'],
+            # 'district_key': ['co_D1', 'co_D2', 'co_D3', 'co_D4'],
+            'StartDate': ['2020-02-10', '2020-02-15', '2020-02-25', '2020-03-01'],
+            # 'EndDate': ['2020-02-14', '2020-02-24', '2020-02-28', None],
+        },
+    )
+    district_df['StartDate'] = pd.to_datetime(district_df['StartDate'])
+    # district_df['EndDate'] = pd.to_datetime(district_df['EndDate'])
+    # district_df.set_index('StartDate', drop=False, inplace=True)
+
+    return district_df
 
 
 #: TODO: this test is not telling me anything useful right now...
