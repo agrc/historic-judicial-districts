@@ -9,7 +9,7 @@ from lookback import models
 def shape_data():
     shape_df = pd.DataFrame(
         data={
-            'county_key': ['uts_co_S1', 'uts_co_S2', 'uts_co_S3', 'uts_co_S4'],
+            'shape_key': ['uts_co_S1', 'uts_co_S2', 'uts_co_S3', 'uts_co_S4'],
             'START_DATE': ['2020-02-05', '2020-02-20', '2020-02-25', '2020-03-01'],
             'END_DATE': ['2020-02-19', '2020-02-24', '2020-02-28', '2021-01-01'],
         },
@@ -195,6 +195,65 @@ def names_district_data():
     # district_df.set_index('StartDate', drop=False, inplace=True)
 
     return district_df
+
+
+@pytest.fixture
+def all_districts_df():
+    district_df = pd.DataFrame(
+        data={
+            'CountyName': ['grand', 'richland', 'rich', 'shambip'],
+            'StartDate': ['2020-02-10', '2020-02-15', '2020-02-25', '2020-03-01'],
+            'EndDate': ['2020-02-14', '2020-02-24', '2020-02-28', None],
+            'NewDistrict': ['1', '1', '2', '4'],
+            'OldDistrict': ['1', '1', '1', '4'],
+            'Version': ['1', '1', '2', '1'],
+        },
+    )
+
+    return district_df
+
+
+def test_load_districts_simple(mocker, all_districts_df):
+    pd.read_csv = mocker.Mock(return_value=all_districts_df)
+    test_state = models.State()
+    test_state.load_districts('foo')
+    assert test_state.all_districts_df.loc[0, :].values.tolist() == [
+        'grand',
+        np.datetime64('2020-02-10'),
+        np.datetime64('2020-02-14'),
+        '1',
+        '1',
+        '1',
+        'grand',
+        'grand_D1',
+    ]
+
+
+def test_load_districts_rich(mocker, all_districts_df):
+    pd.read_csv = mocker.Mock(return_value=all_districts_df)
+    test_state = models.State()
+    test_state.load_districts('foo')
+
+    assert test_state.all_districts_df.loc[1, :].values.tolist() == [
+        'richland',
+        np.datetime64('2020-02-15'),
+        np.datetime64('2020-02-24'),
+        '1',
+        '1',
+        '1',
+        'rich',
+        'richland_D1',
+    ]
+    assert test_state.all_districts_df.loc[2, :].values.tolist() == [
+        'rich',
+        np.datetime64('2020-02-25'),
+        np.datetime64('2020-02-28'),
+        '2',
+        '1',
+        '2',
+        'rich',
+        'rich_D2',
+    ]
 
 
 #: TODO: this test is not telling me anything useful right now...

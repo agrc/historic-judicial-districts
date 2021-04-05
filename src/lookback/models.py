@@ -294,8 +294,7 @@ class County:
         """
 
         #: create a local shape dataframe of just the county, change the index to the start date of each version
-        self.shape_df = counties_df[counties_df['county_key'].str.contains(self.name
-                                                                          )].copy()  #: copy to avoid chained indexing
+        self.shape_df = counties_df[counties_df['county_key'].str.contains(self.name)].copy()  #: avoid chained indexing
         self.shape_df.set_index('START_DATE', inplace=True)
         self.shape_df['START_DATE'] = self.shape_df.index  #: re-add start date for output data
         self.shape_df.sort_index(inplace=True)
