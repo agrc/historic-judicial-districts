@@ -161,6 +161,21 @@ def test_nulls_to_none():
         assert row == [None, None]
 
 
+def test_nulls_to_none_normals_ok():
+    test_df = pd.DataFrame(data={'number': [1.0, None], 'date': ['2021-03-01', None]})
+    test_df['number'] = test_df['number'].astype('float64')
+    test_df['date'] = pd.to_datetime(test_df['date'])
+
+    none_rows = []
+    # for row in test_df.values.tolist():
+    #     none_rows.append(models.nulls_to_nones(row))
+    none_rows.append(models.nulls_to_nones(test_df.loc[0, :].values.tolist()))
+    none_rows.append(models.nulls_to_nones(test_df.loc[1, :].values.tolist()))
+
+    assert none_rows[0] == [1.0, np.datetime64('2021-03-01')]
+    assert none_rows[1] == [None, None]
+
+
 @pytest.fixture
 def all_districts_df():
     district_df = pd.DataFrame(
