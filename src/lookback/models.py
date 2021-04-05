@@ -174,20 +174,20 @@ class State:
             out_path (str, optional): Path to save master change dates
                 dataframe as csv if desired.
         """
-        self.combined_change_df = pd.DataFrame()  #columns=['date', 'county_version', 'district'])
+        self.combined_change_df = pd.DataFrame()
         for county in self.counties:
             self.combined_change_df = self.combined_change_df.append(county.change_dates_df)
         if out_path:
             self.combined_change_df.to_csv(out_path)
 
-    def insert_geometries(self):
-        """Join shape/counties_df back into change dates to get relevant info
+    def get_shape_district_info(self):
+        """Get shape/district info for each change date for each county
         """
 
-        print('Coying geometries into change dates...')
+        print('mergeing shape/district info into change dates...')
         self.output_df = pd.DataFrame()
         for county in self.counties:
-            county.copy_geometries_into_change_dates()
+            county.join_shapes_and_districts()
             self.output_df = self.output_df.append(county.joined_df)
 
     def output_to_featureclass(self, out_path, template_shp):
@@ -362,8 +362,8 @@ class County:
         #: End date is one day before the next rows start date
         self.change_dates_df['change_end_date'] = self.change_dates_df['date'].shift(-1) - pd.Timedelta(days=1)
 
-    def copy_geometries_into_change_dates(self):
-        """Add geometries back into change date dataframe
+    def join_shapes_and_districts(self):
+        """Join shape and district info based on shape/district_keys
 
         Joins the shape and district dataframes to the change date data to add geometries and other relevant info for
         each change date.
