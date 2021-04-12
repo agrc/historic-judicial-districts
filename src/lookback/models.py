@@ -315,7 +315,7 @@ class County:
         change_dates = [ChangeDate(date) for date in dates]
 
         for change_date in change_dates:
-            change_date.county_name = self.name
+            change_date.county_name = self.name  #: county_key
 
             #: Get the county key for this date
             shape_df_rows = [row for row in self.shape_df.itertuples()]
@@ -343,6 +343,15 @@ class County:
                     district_row == district_df_rows[-1] and pd.isnull(district_row.EndDate) and
                     change_date.date > first_district_date
                 ):
+                    change_date.district_number = district_row.NewDistrict
+                    change_date.district_version = district_row.district_key
+                    break
+
+                #: Richland scenario: a renamed county in both shapes and districts, and the original
+                #: name's district entry doesn't have an end date
+                #: This should come after the final row check to be sure it doesn't pick up the final district
+                #: that shouldn't have an end date.
+                if change_date.date >= district_row.StartDate and pd.isnull(district_row.EndDate):
                     change_date.district_number = district_row.NewDistrict
                     change_date.district_version = district_row.district_key
 
