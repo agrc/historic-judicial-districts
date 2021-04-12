@@ -214,8 +214,8 @@ class State:
             ['SHP_NAME', 'TEXT'],  #: shape_df NAME
             ['SHP_ID', 'TEXT'],  #: shape_df ID
             ['SHP_FIPS', 'TEXT'],  #: shape_df FIPS
-            ['DST_NAME', 'TEXT'],  #: district_df CountyName
             ['SHP_VERSION', 'TEXT'],  #: shape_df VERSION
+            ['DST_NAME', 'TEXT'],  #: district_df CountyName
             ['DST_NUMBER', 'TEXT'],  #: district_df district
             ['SHP_START_DATE', 'DATE'],  #: shape_df START_DATE
             ['SHP_END_DATE', 'DATE'],  #: shape_df END_DATE
