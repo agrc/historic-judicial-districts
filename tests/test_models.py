@@ -128,6 +128,105 @@ def test_change_dates_change_district_change_shape_no_district_end_date(mocker, 
     ]
 
 
+@pytest.fixture
+def richland_shape_data():
+    shape_df = pd.DataFrame(
+        data={
+            'shape_key': ['uts_richland_S1', 'uts_rich_S1', 'uts_rich_S2'],
+            'START_DATE': ['2020-02-01', '2020-02-10', '2020-02-15'],
+            'END_DATE': ['2020-02-09', '2020-02-14', '2020-02-24'],
+        },
+    )
+    shape_df['END_DATE'] = pd.to_datetime(shape_df['END_DATE'])
+    shape_df['START_DATE'] = pd.to_datetime(shape_df['START_DATE'])
+    shape_df.set_index('START_DATE', drop=False, inplace=True)
+
+    return shape_df
+
+
+@pytest.fixture
+def richland_district_data():
+    district_df = pd.DataFrame(
+        data={
+            'NewDistrict': ['1', '1', '2'],
+            'district_key': ['richland_D1', 'rich_D1', 'rich_D2'],
+            'StartDate': ['2020-02-5', '2020-02-10', '2020-02-20'],
+            'EndDate': [None, '2020-02-19', None],
+        },
+    )
+    district_df['StartDate'] = pd.to_datetime(district_df['StartDate'])
+    district_df['EndDate'] = pd.to_datetime(district_df['EndDate'])
+    district_df.set_index('StartDate', drop=False, inplace=True)
+
+    return district_df
+
+
+def test_change_dates_richland_shape_no_district(mocker, richland_shape_data, richland_district_data):
+
+    county = mocker.Mock()
+    county.name = 'rich'
+    county.shape_df = richland_shape_data
+    county.district_df = richland_district_data
+
+    models.County.calc_change_dates(county)
+
+    test_columns = ['date', 'county_name', 'county_version', 'district_number', 'district_version']
+
+    assert county.change_dates_df.loc[0, test_columns].values.tolist() == [
+        np.datetime64('2020-02-01'), 'rich', 'uts_richland_S1', 'n/a', 'n/a'
+    ]
+
+
+def test_change_dates_richland_shape_richland_district(mocker, richland_shape_data, richland_district_data):
+
+    county = mocker.Mock()
+    county.name = 'rich'
+    county.shape_df = richland_shape_data
+    county.district_df = richland_district_data
+
+    models.County.calc_change_dates(county)
+
+    test_columns = ['date', 'county_name', 'county_version', 'district_number', 'district_version']
+
+    assert county.change_dates_df.loc[1, test_columns].values.tolist() == [
+        np.datetime64('2020-02-05'), 'rich', 'uts_richland_S1', '1', 'richland_D1'
+    ]
+
+
+def test_change_dates_rich_shape_rich_district(mocker, richland_shape_data, richland_district_data):
+
+    county = mocker.Mock()
+    county.name = 'rich'
+    county.shape_df = richland_shape_data
+    county.district_df = richland_district_data
+
+    models.County.calc_change_dates(county)
+
+    test_columns = ['date', 'county_name', 'county_version', 'district_number', 'district_version']
+
+    assert county.change_dates_df.loc[2, test_columns].values.tolist() == [
+        np.datetime64('2020-02-10'), 'rich', 'uts_rich_S1', '1', 'rich_D1'
+    ]
+
+
+def test_change_dates_rich_shape_rich_district_no_district_end_date(
+    mocker, richland_shape_data, richland_district_data
+):
+
+    county = mocker.Mock()
+    county.name = 'rich'
+    county.shape_df = richland_shape_data
+    county.district_df = richland_district_data
+
+    models.County.calc_change_dates(county)
+
+    test_columns = ['date', 'county_name', 'county_version', 'district_number', 'district_version']
+
+    assert county.change_dates_df.loc[4, test_columns].values.tolist() == [
+        np.datetime64('2020-02-20'), 'rich', 'uts_rich_S2', '2', 'rich_D2'
+    ]
+
+
 def test_shapefile_uts_to_county_key():
     assert models.create_county_key('uts_saltlake') == 'saltlake'
 
