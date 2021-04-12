@@ -223,7 +223,7 @@ class State:
             ['DST_END_DATE', 'DATE'],  #: district_df end_date
             ['SHP_CHANGE', 'TEXT'],  #: shape_df CHANGE
             ['SHP_CITATION', 'TEXT'],  #: shape_df CITATION
-            ['SHP_AREA_SQMI', 'DOUBLE'],  #: shape_df AREA_SQMI
+            ['SHP_AREA_SQMI', 'LONG'],  #: shape_df AREA_SQMI
             ['SHP_KEY', 'TEXT'],  #: shape_df shape_key
             ['DST_KEY', 'TEXT'],  #: district_df district_key
         ]
