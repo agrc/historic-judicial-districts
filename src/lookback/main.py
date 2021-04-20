@@ -23,8 +23,10 @@ def main():
     # print(state.counties[1].change_dates_df)
     state.combine_change_dfs(change_dates_csv)
     state.get_shape_district_info()
-    state.output_to_featureclass(output_fc, counties_shp)
+    # state.output_to_featureclass(output_fc, counties_shp)
 
+    state.setup_districts()
+    print()
     # state.verify_counties()
 
 
