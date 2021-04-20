@@ -547,3 +547,74 @@ class TestFinalJoins:
             np.datetime64('2020-02-01'),
             np.datetime64('2020-02-04'),
         ]
+
+
+class TestDistricts:
+
+    @pytest.fixture
+    def joined_df(self):
+        joined_df = pd.DataFrame(
+            data={
+                'county_name': ['foo', 'foo', 'foo', 'bar', 'bar', 'bar'],
+                'DST_NUMBER': ['1', '1', '2', '1', '2', '3'],
+            }
+        )
+
+        return joined_df
+
+    def test_setup_gets_just_the_districts_data(self, mocker, joined_df):
+        district_mock = mocker.Mock(speck=models.District)
+        models.District.__init__(district_mock, '1', joined_df)
+
+        assert district_mock.district_records['DST_NUMBER'].unique().tolist() == ['1']
+        assert district_mock.district_records['county_name'].unique().tolist() == ['foo', 'bar']
+
+    def test_setup_creates_all_empty_versions(self, mocker, joined_df):
+        district_mock = mocker.Mock(speck=models.District)
+        models.District.__init__(district_mock, '1', joined_df)
+
+        assert district_mock.versions == {1: [], 2: []}
+
+    def test_get_versions_first_occurrence(self, mocker):
+        district_mock = mocker.Mock()
+        district_mock.versions = {1: [], 2: []}
+
+        models.District._get_version(district_mock, 'foo')
+
+        assert district_mock.versions == {1: ['foo'], 2: []}
+
+    def test_get_versions_second_occurrence(self, mocker):
+        district_mock = mocker.Mock()
+        district_mock.versions = {1: ['foo'], 2: []}
+
+        models.District._get_version(district_mock, 'foo')
+
+        assert district_mock.versions == {1: ['foo'], 2: ['foo']}
+
+    def test_get_versions_first_occurrence_other_exists(self, mocker):
+        district_mock = mocker.Mock()
+        district_mock.versions = {1: ['bar'], 2: []}
+
+        models.District._get_version(district_mock, 'foo')
+
+        assert district_mock.versions == {1: ['bar', 'foo'], 2: []}
+
+    def test_get_versions_second_occurrence_other_exists(self, mocker):
+        district_mock = mocker.Mock()
+        district_mock.versions = {1: ['foo', 'bar'], 2: []}
+
+        models.District._get_version(district_mock, 'foo')
+
+        assert district_mock.versions == {1: ['foo', 'bar'], 2: ['foo']}
+
+    def test_assign_versions_comprehension(self, mocker, joined_df):
+        district_mock = mocker.Mock()
+
+        district_mock._get_version.return_value = 'assigned'
+
+        #: Need to run setup through __init__ to make sure the index is reset the same as IRL, as having an index
+        #: that does not match the new series index from assign_versions will cause problems.
+        models.District.__init__(district_mock, '1', joined_df)
+        models.District.assign_versions(district_mock)
+
+        assert district_mock.district_records['district_version'].tolist() == ['assigned', 'assigned', 'assigned']
