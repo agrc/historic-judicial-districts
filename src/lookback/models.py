@@ -89,6 +89,7 @@ class State:
         self.counties = []
         self.combined_change_df = None
         self.output_df = None
+        self.districts = []
 
     def load_counties(self, counties_shp):
         """Read historical boundaries shapefile into counties_df
@@ -259,6 +260,14 @@ class State:
         with arcpy.da.InsertCursor(out_path, list(cursor_fields)) as insert_cursor:
             for row in renamed_df[cursor_fields].values.tolist():
                 insert_cursor.insertRow(nulls_to_nones(row))
+
+    def setup_districts(self):
+
+        print('Setting up districts...')
+        district_numbers = self.output_df['district_number'].unique()
+        for number in district_numbers:
+            district = District(number, self.output_df)
+            self.districts.append(district)
 
 
 class County:
@@ -433,7 +442,7 @@ class District:
 
     def __init__(self, label, joined_df):
         self.label = label
-        self.district_records = joined_df[joined_df['DST_NUMBER'] == self.label].copy()
+        self.district_records = joined_df[joined_df['district_number'] == self.label].copy()
         #: Need to reset index, otherwise the series assignment in assign_versions may assign to an index
         #: that doesn't exist in the dataframe
         self.district_records.reset_index(inplace=True)

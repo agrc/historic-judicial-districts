@@ -556,7 +556,7 @@ class TestDistricts:
         joined_df = pd.DataFrame(
             data={
                 'county_name': ['foo', 'foo', 'foo', 'bar', 'bar', 'bar'],
-                'DST_NUMBER': ['1', '1', '2', '1', '2', '3'],
+                'district_number': ['1', '1', '2', '1', '2', '3'],
             }
         )
 
@@ -566,7 +566,7 @@ class TestDistricts:
         district_mock = mocker.Mock(speck=models.District)
         models.District.__init__(district_mock, '1', joined_df)
 
-        assert district_mock.district_records['DST_NUMBER'].unique().tolist() == ['1']
+        assert district_mock.district_records['district_number'].unique().tolist() == ['1']
         assert district_mock.district_records['county_name'].unique().tolist() == ['foo', 'bar']
 
     def test_setup_creates_all_empty_versions(self, mocker, joined_df):
