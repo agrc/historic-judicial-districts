@@ -427,3 +427,32 @@ class County:
         )
 
         print(sorted_shape_df.loc[:, ['END_DATE', 'ID', 'VERSION', 'DateMatch']])
+
+
+class District:
+
+    def __init__(self, label, joined_df):
+        self.label = label
+        self.district_records = joined_df[joined_df['DST_NUMBER'] == self.label].copy()
+        #: Need to reset index, otherwise the series assignment in assign_versions may assign to an index
+        #: that doesn't exist in the dataframe
+        self.district_records.reset_index(inplace=True)
+        #: Pre-populate our version dict with the max possible versions, indexed at 1 instead of 0
+        max_occurrences = self.district_records.groupby('county_name')['county_name'].count().max()
+        self.versions = {}
+        for i in range(1, max_occurrences + 1):
+            self.versions[i] = []
+
+    def assign_versions(self):
+        #: Assign each row in district_records a version number
+        #:  If the county doesn't exist in latest version, assign to that version
+        #:  If it does, increment version and assign
+        self.district_records['district_version'] = pd.Series([
+            self._get_version(name) for name in self.district_records['county_name']
+        ])
+
+    def _get_version(self, name):
+        for version_number in self.versions:
+            if name not in self.versions[version_number]:
+                self.versions[version_number].append(name)
+                return version_number
