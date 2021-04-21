@@ -26,6 +26,8 @@ def main():
     # state.output_to_featureclass(output_fc, counties_shp)
 
     state.setup_districts()
+    state.calc_districts()
+    state.combine_districts_df(r'C:\gis\Projects\HistoricCounties\Data\JudicialDistricts\district_versions.pkl')
     print()
     # state.verify_counties()
 

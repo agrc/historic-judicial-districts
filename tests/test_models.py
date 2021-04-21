@@ -618,3 +618,15 @@ class TestDistricts:
         models.District.assign_versions(district_mock)
 
         assert district_mock.district_records['district_version'].tolist() == ['assigned', 'assigned', 'assigned']
+
+    def test_assign_versions_create_district_version_key(self, mocker, joined_df):
+        district_mock = mocker.Mock()
+
+        district_mock._get_version.return_value = 1
+
+        #: Need to run setup through __init__ to make sure the index is reset the same as IRL, as having an index
+        #: that does not match the new series index from assign_versions will cause problems.
+        models.District.__init__(district_mock, '1', joined_df)
+        models.District.assign_versions(district_mock)
+
+        assert district_mock.district_records['district_version_key'].tolist() == ['D1_V01', 'D1_V01', 'D1_V01']
