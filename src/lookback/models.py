@@ -90,6 +90,7 @@ class State:
         self.combined_change_df = None
         self.output_df = None
         self.districts = []
+        self.district_versions_df = None
 
     def load_counties(self, counties_shp):
         """Read historical boundaries shapefile into counties_df
@@ -269,6 +270,18 @@ class State:
             district = District(number, self.output_df)
             self.districts.append(district)
 
+    def calc_districts(self):
+        for district in self.districts:
+            district.assign_versions()
+
+    def combine_districts_df(self, out_path=None):
+        self.district_versions_df = pd.DataFrame()
+        for district in self.districts:
+            self.district_versions_df = self.district_versions_df.append(district.district_records)
+
+        if out_path:
+            self.district_versions_df.to_pickle(out_path)
+
 
 class County:
     """Data and processing for a specific county within the total dataset.
@@ -445,7 +458,7 @@ class District:
         self.district_records = joined_df[joined_df['district_number'] == self.label].copy()
         #: Need to reset index, otherwise the series assignment in assign_versions may assign to an index
         #: that doesn't exist in the dataframe
-        self.district_records.reset_index(inplace=True)
+        self.district_records.reset_index(inplace=True, drop=True)
         #: Pre-populate our version dict with the max possible versions, indexed at 1 instead of 0
         max_occurrences = self.district_records.groupby('county_name')['county_name'].count().max()
         self.versions = {}
@@ -459,6 +472,11 @@ class District:
         self.district_records['district_version'] = pd.Series([
             self._get_version(name) for name in self.district_records['county_name']
         ])
+
+        self.district_records['district_version_key'] = [
+            'D' + district + '_V' + str(version).zfill(2) for district, version in
+            zip(self.district_records['district_number'], self.district_records['district_version'])
+        ]
 
     def _get_version(self, name):
         for version_number in self.versions:
