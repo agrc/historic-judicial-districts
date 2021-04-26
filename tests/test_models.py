@@ -569,64 +569,82 @@ class TestDistricts:
         assert district_mock.district_records['district_number'].unique().tolist() == ['1']
         assert district_mock.district_records['county_name'].unique().tolist() == ['foo', 'bar']
 
-    def test_setup_creates_all_empty_versions(self, mocker, joined_df):
-        district_mock = mocker.Mock(speck=models.District)
-        models.District.__init__(district_mock, '1', joined_df)
+    @pytest.fixture
+    def unique_dates(self):
+        return [np.datetime64('2020-01-01'), np.datetime64('2021-01-01'), np.datetime64('2022-01-01')]
 
-        assert district_mock.versions == {1: [], 2: []}
+    def test_get_unique_district_versions_assigns_to_one(self, unique_dates, mocker):
+        distric_mock = mocker.Mock()
+        start_date = np.datetime64('2020-01-01')
+        end_date = np.datetime64('2020-12-31')
 
-    def test_get_versions_first_occurrence(self, mocker):
-        district_mock = mocker.Mock()
-        district_mock.versions = {1: [], 2: []}
+        versions = models.District._get_unique_district_versions(distric_mock, unique_dates, start_date, end_date)
 
-        models.District._get_version(district_mock, 'foo')
+        assert versions == [np.datetime64('2020-01-01')]
 
-        assert district_mock.versions == {1: ['foo'], 2: []}
+    def test_get_unique_district_versions_assigns_to_two(self, unique_dates, mocker):
+        distric_mock = mocker.Mock()
+        start_date = np.datetime64('2020-01-01')
+        end_date = np.datetime64('2021-12-31')
 
-    def test_get_versions_second_occurrence(self, mocker):
-        district_mock = mocker.Mock()
-        district_mock.versions = {1: ['foo'], 2: []}
+        versions = models.District._get_unique_district_versions(distric_mock, unique_dates, start_date, end_date)
 
-        models.District._get_version(district_mock, 'foo')
+        assert versions == [np.datetime64('2020-01-01'), np.datetime64('2021-01-01')]
 
-        assert district_mock.versions == {1: ['foo'], 2: ['foo']}
+    def test_get_unique_district_versions_assigns_to_all_with_no_ending_date(self, unique_dates, mocker):
+        distric_mock = mocker.Mock()
+        start_date = np.datetime64('2020-01-01')
+        end_date = np.datetime64('nat')
 
-    def test_get_versions_first_occurrence_other_exists(self, mocker):
-        district_mock = mocker.Mock()
-        district_mock.versions = {1: ['bar'], 2: []}
+        versions = models.District._get_unique_district_versions(distric_mock, unique_dates, start_date, end_date)
 
-        models.District._get_version(district_mock, 'foo')
+    def test_get_unique_district_versions_assigns_to_all_with_later_ending_date(self, unique_dates, mocker):
+        distric_mock = mocker.Mock()
+        start_date = np.datetime64('2020-01-01')
+        end_date = np.datetime64('2024-01-01')
 
-        assert district_mock.versions == {1: ['bar', 'foo'], 2: []}
+        versions = models.District._get_unique_district_versions(distric_mock, unique_dates, start_date, end_date)
 
-    def test_get_versions_second_occurrence_other_exists(self, mocker):
-        district_mock = mocker.Mock()
-        district_mock.versions = {1: ['foo', 'bar'], 2: []}
+        assert versions == [np.datetime64('2020-01-01'), np.datetime64('2021-01-01'), np.datetime64('2022-01-01')]
 
-        models.District._get_version(district_mock, 'foo')
+    def test_get_unique_district_versions_assigns_to_last_two_with_no_ending_date(self, unique_dates, mocker):
+        distric_mock = mocker.Mock()
+        start_date = np.datetime64('2021-01-01')
+        end_date = np.datetime64('nat')
 
-        assert district_mock.versions == {1: ['foo', 'bar'], 2: ['foo']}
+        versions = models.District._get_unique_district_versions(distric_mock, unique_dates, start_date, end_date)
 
-    def test_assign_versions_comprehension(self, mocker, joined_df):
-        district_mock = mocker.Mock()
+        assert versions == [np.datetime64('2021-01-01'), np.datetime64('2022-01-01')]
 
-        district_mock._get_version.return_value = 'assigned'
+    def test_get_unique_district_versions_assigns_to_last_two_with_later_ending_date(self, unique_dates, mocker):
+        distric_mock = mocker.Mock()
+        start_date = np.datetime64('2021-01-01')
+        end_date = np.datetime64('2024-01-01')
 
-        #: Need to run setup through __init__ to make sure the index is reset the same as IRL, as having an index
-        #: that does not match the new series index from assign_versions will cause problems.
-        models.District.__init__(district_mock, '1', joined_df)
-        models.District.assign_versions(district_mock)
+        versions = models.District._get_unique_district_versions(distric_mock, unique_dates, start_date, end_date)
 
-        assert district_mock.district_records['district_version'].tolist() == ['assigned', 'assigned', 'assigned']
+        assert versions == [np.datetime64('2021-01-01'), np.datetime64('2022-01-01')]
 
-    def test_assign_versions_create_district_version_key(self, mocker, joined_df):
-        district_mock = mocker.Mock()
+    # def test_assign_versions_comprehension(self, mocker, joined_df):
+    #     district_mock = mocker.Mock()
 
-        district_mock._get_version.return_value = 1
+    #     district_mock._get_version.return_value = 'assigned'
 
-        #: Need to run setup through __init__ to make sure the index is reset the same as IRL, as having an index
-        #: that does not match the new series index from assign_versions will cause problems.
-        models.District.__init__(district_mock, '1', joined_df)
-        models.District.assign_versions(district_mock)
+    #     #: Need to run setup through __init__ to make sure the index is reset the same as IRL, as having an index
+    #     #: that does not match the new series index from assign_versions will cause problems.
+    #     models.District.__init__(district_mock, '1', joined_df)
+    #     models.District.assign_versions(district_mock)
 
-        assert district_mock.district_records['district_version_key'].tolist() == ['D1_V01', 'D1_V01', 'D1_V01']
+    #     assert district_mock.district_records['district_version'].tolist() == ['assigned', 'assigned', 'assigned']
+
+    # def test_assign_versions_create_district_version_key(self, mocker, joined_df):
+    #     district_mock = mocker.Mock()
+
+    #     district_mock._get_version.return_value = 1
+
+    #     #: Need to run setup through __init__ to make sure the index is reset the same as IRL, as having an index
+    #     #: that does not match the new series index from assign_versions will cause problems.
+    #     models.District.__init__(district_mock, '1', joined_df)
+    #     models.District.assign_versions(district_mock)
+
+    #     assert district_mock.district_records['district_version_key'].tolist() == ['D1_V01', 'D1_V01', 'D1_V01']

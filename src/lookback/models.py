@@ -1,4 +1,4 @@
-from collections import namedtuple
+from collections import defaultdict, namedtuple
 from pathlib import Path
 
 import arcpy
@@ -91,7 +91,8 @@ class State:
         self.combined_change_df = None
         self.output_df = None
         self.districts = []
-        self.district_versions_df = None
+        self.district_versions_dict = {}
+        # self.district_versions_df = None
 
     def load_counties(self, counties_shp):
         """Read historical boundaries shapefile into counties_df
@@ -213,7 +214,7 @@ class State:
 
         new_fields = [
             ['CHANGE_DATE', 'DATE'],  #: change_df date
-            ['CHANGE_END_DATE', 'DATE'],  #: change_df date
+            ['CHANGE_END_DATE', 'DATE'],  #: change_df change_end_date
             ['COUNTY_KEY', 'TEXT'],  #: change_df county_name
             ['SHP_NAME', 'TEXT'],  #: shape_df NAME
             ['SHP_ID', 'TEXT'],  #: shape_df ID
@@ -275,15 +276,25 @@ class State:
 
     def calc_districts(self):
         for district in self.districts:
-            district.assign_versions()
+            district.calc_change_dates()
 
-    def combine_districts_df(self, out_path=None):
-        self.district_versions_df = pd.DataFrame()
+    #: TODO: figure out this step- we need to create something we can dissolve against.
+    def combine_district_dicts(self, out_path=None):
+        self.district_versions_dict = defaultdict(list)
         for district in self.districts:
-            self.district_versions_df = self.district_versions_df.append(district.district_records)
+            for change_date, unique_key_list in district.versions_dict.items():
+                self.district_versions_dict[change_date].extend(unique_key_list)
 
         if out_path:
-            self.district_versions_df.to_pickle(out_path)
+            versions_df = pd.DataFrame(dict([(k, pd.Series(v)) for k, v in self.district_versions_dict.items()]))
+            versions_df.to_pickle(out_path)
+
+        # self.district_versions_df = pd.DataFrame()
+        # for district in self.districts:
+        #     self.district_versions_df = self.district_versions_df.append(district.district_records)
+
+        # if out_path:
+        #     self.district_versions_df.to_pickle(out_path)
 
 
 class County:
@@ -459,60 +470,34 @@ class District:
     def __init__(self, label, joined_df):
         self.label = label
         self.district_records = joined_df[joined_df['district_number'] == self.label].copy()
+        self.versions_dict = None
 
-    #     #: Need to reset index, otherwise the series assignment in assign_versions may assign to an index
-    #     #: that doesn't exist in the dataframe
-    #     self.district_records.reset_index(inplace=True, drop=True)
-    #     #: Pre-populate our version dict with the max possible versions, indexed at 1 instead of 0
-    #     max_occurrences = self.district_records.groupby('county_name')['county_name'].count().max()
-    #     self.versions = {}
-    #     for i in range(1, max_occurrences + 1):
-    #         self.versions[i] = []
-
-    #: TODO: These two methods don't work; they don't remove records that leave the district on a change date
-    #: that occurs after the last addition change date .Because the removal change date belongs to another district
-    #: number, it's not guaranteed to get picked up in this District. Perhaps some additional checks in
-    #: _lookup_rows_present_in_date might solve it?
     def calc_change_dates(self):
-        dates = pd.DataFrame(self.district_records['change_date'].unique(), columns=['change_date'])
-        self.district_records['UNIQUE_ROW_KEY'] = [
+        self.district_records['unique_row_key'] = [
             str(shp_key) + '__' + str(dst_key)
             for shp_key, dst_key in zip(self.district_records['shape_key'], self.district_records['district_key'])
         ]
-        cd_dict = {
-            date: self._lookup_rows_present_in_date(
-                self.district_records[['change_date', 'change_end_date', 'UNIQUE_ROW_KEY']], date
-            ) for date in dates['change_date']
+
+        unique_change_dates = list(self.district_records['date'].unique())
+        self.versions_dict = {
+            row_key: self._get_unique_district_versions(unique_change_dates, start_date, end_date)
+            for row_key, start_date, end_date in zip(
+                self.district_records['unique_row_key'],
+                self.district_records['date'],
+                self.district_records['change_end_date'],
+            )
         }
-        change_date_df = pd.DataFrame(dict([(k, pd.Series(v)) for k, v in cd_dict.items()]))
-        return change_date_df.T.sort_index()
 
-    def _lookup_rows_present_in_date(self, data_df, date):
-        key_list = []
-        for row in list(data_df.values):  #: [(start, end, key), ...]
-            if row[0] <= np.datetime64(date) < row[1]:
-                key_list.append(row[2])
+    def _get_unique_district_versions(self, unique_dates, start_date, end_date):
+        versions_list = []
+        for date in unique_dates:
+            #: first check: does the record start before this change date and end after it?
+            if start_date <= date <= end_date:
+                versions_list.append(date)
                 continue
-            if row[0] <= np.datetime64(date) and pd.isnull(row[1]):
-                key_list.append(row[2])
-                continue
-        return key_list
 
-    # def assign_versions(self):
-    #     #: Assign each row in district_records a version number
-    #     #:  If the county doesn't exist in latest version, assign to that version
-    #     #:  If it does, increment version and assign
-    #     self.district_records['district_version'] = pd.Series([
-    #         self._get_version(name) for name in self.district_records['county_name']
-    #     ])
+            #: second check: does the record start before this change date and not have an end date?
+            if start_date <= date and pd.isnull(end_date):
+                versions_list.append(date)
 
-    # self.district_records['district_version_key'] = [
-    #     'D' + district + '_V' + str(version).zfill(2) for district, version in
-    #     zip(self.district_records['district_number'], self.district_records['district_version'])
-    # ]
-
-    # def _get_version(self, name):
-    #     for version_number in self.versions:
-    #         if name not in self.versions[version_number]:
-    #             self.versions[version_number].append(name)
-    #             return version_number
+        return versions_list
