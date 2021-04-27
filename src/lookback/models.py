@@ -195,6 +195,31 @@ class State:
             county.join_shapes_and_districts()
             self.output_df = self.output_df.append(county.joined_df)
 
+        df_renamer = {
+            'NAME': 'SHP_NAME',
+            'ID': 'SHP_ID',
+            'FIPS': 'SHP_FIPS',
+            'VERSION': 'SHP_VERSION',
+            'START_DATE': 'SHP_START_DATE',
+            'END_DATE': 'SHP_END_DATE',
+            'CHANGE': 'SHP_CHANGE',
+            'CITATION': 'SHP_CITATION',
+            'AREA_SQMI': 'SHP_AREA_SQMI',
+            'StartDate': 'DST_START_DATE',
+            'EndDate': 'DST_END_DATE',
+            'district_number': 'DST_NUMBER',
+            'shape_key': 'SHP_KEY',
+            'district_key': 'DST_KEY',
+            'SHAPE@': 'SHAPE@',
+            'date': 'CHANGE_DATE',
+            'county_name': 'COUNTY_KEY',
+            'CountyName': 'DST_NAME',
+            'change_end_date': 'CHANGE_END_DATE',
+        }
+
+        self.output_df.rename(columns=df_renamer, inplace=True)
+
+    #: TODO: move the renaming out of this method so that the district merging stuff has access to the sane names.
     def output_to_featureclass(self, out_path, template_shp):
         """Write final data in output_df out to specified feature class.
 
@@ -234,37 +259,15 @@ class State:
             ['DST_KEY', 'TEXT'],  #: district_df district_key
         ]
 
-        df_renamer = {
-            'NAME': 'SHP_NAME',
-            'ID': 'SHP_ID',
-            'FIPS': 'SHP_FIPS',
-            'VERSION': 'SHP_VERSION',
-            'START_DATE': 'SHP_START_DATE',
-            'END_DATE': 'SHP_END_DATE',
-            'CHANGE': 'SHP_CHANGE',
-            'CITATION': 'SHP_CITATION',
-            'AREA_SQMI': 'SHP_AREA_SQMI',
-            'StartDate': 'DST_START_DATE',
-            'EndDate': 'DST_END_DATE',
-            'district_number': 'DST_NUMBER',
-            'shape_key': 'SHP_KEY',
-            'district_key': 'DST_KEY',
-            'SHAPE@': 'SHAPE@',
-            'date': 'CHANGE_DATE',
-            'county_name': 'COUNTY_KEY',
-            'CountyName': 'DST_NAME',
-            'change_end_date': 'CHANGE_END_DATE',
-        }
-
         arcpy.management.AddFields(out_path, new_fields)
 
         print(f'Writing out to {out_path}...')
 
         #: Rename the data frame columns to match the output fields
-        renamed_df = self.output_df.rename(columns=df_renamer)
-        cursor_fields = df_renamer.values()  #: Only look at the renamed columns
+        cursor_fields = [field_name[0] for field_name in new_fields]  #: Only look at the renamed columns
+        cursor_fields.append('SHAPE@')  #: Make sure we've got geometry
         with arcpy.da.InsertCursor(out_path, list(cursor_fields)) as insert_cursor:
-            for row in renamed_df[cursor_fields].values.tolist():
+            for row in self.output_df[cursor_fields].values.tolist():
                 insert_cursor.insertRow(nulls_to_nones(row))
 
     def setup_districts(self):
@@ -272,7 +275,7 @@ class State:
         """
 
         print('Setting up districts...')
-        district_numbers = self.output_df['district_number'].unique()
+        district_numbers = self.output_df['DST_NUMBER'].unique()
         for number in district_numbers:
             district = District(number, self.output_df)
             self.districts.append(district)
@@ -465,7 +468,7 @@ class District:
 
     def __init__(self, label, joined_df):
         self.label = label
-        self.district_records: pd.DataFrame = joined_df[joined_df['district_number'] == self.label].copy()
+        self.district_records: pd.DataFrame = joined_df[joined_df['DST_NUMBER'] == self.label].copy()
         self.record_and_versions = None
         self.versions_df: pd.DataFrame
         self.versions_full_info_df: pd.DataFrame
@@ -478,18 +481,18 @@ class District:
         comprehension.
         """
 
-        self.district_records['unique_row_key'] = [
+        self.district_records['UNIQUE_ROW_KEY'] = [
             str(shp_key) + '__' + str(dst_key)
-            for shp_key, dst_key in zip(self.district_records['shape_key'], self.district_records['district_key'])
+            for shp_key, dst_key in zip(self.district_records['SHP_KEY'], self.district_records['DST_KEY'])
         ]
 
-        unique_change_dates = list(self.district_records['date'].unique())
+        unique_change_dates = list(self.district_records['CHANGE_DATE'].unique())
         self.record_and_versions = {
             row_key: self._get_unique_district_versions(unique_change_dates, start_date, end_date)
             for row_key, start_date, end_date in zip(
-                self.district_records['unique_row_key'],
-                self.district_records['date'],
-                self.district_records['change_end_date'],
+                self.district_records['UNIQUE_ROW_KEY'],
+                self.district_records['CHANGE_DATE'],
+                self.district_records['CHANGE_END_DATE'],
             )
         }
 
@@ -502,17 +505,17 @@ class District:
                 #: [(row_key1, d_key1), (row_key2, d_key1), ...]
                 versions.append((row_key, f'{self.label}_{pd.to_datetime(date).strftime("%Y-%m-%d")}'))
 
-        self.versions_df = pd.DataFrame(versions, columns=['unique_row_key', 'district_key'])
+        self.versions_df = pd.DataFrame(versions, columns=['UNIQUE_ROW_KEY', 'DST_VERSION_KEY'])
 
     def join_version_information(self):
-        """For each record and district version, join all other info back in via unique_row_key
+        """For each record and district version, join all other info back in via UNIQUE_ROW_KEY
         """
         self.versions_full_info_df = pd.merge(
             self.versions_df,
             self.district_records,
             how='left',
-            left_on='unique_row_key',
-            right_on='unique_row_key',
+            left_on='UNIQUE_ROW_KEY',
+            right_on='UNIQUE_ROW_KEY',
             validate='m:1'
         )
 
