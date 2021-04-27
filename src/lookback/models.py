@@ -93,7 +93,7 @@ class State:
         self.output_df = None
         self.districts: List[District] = []
         self.district_versions_dict = {}
-        # self.district_versions_df = None
+        self.district_versions_df: pd.DataFrame
 
     def load_counties(self, counties_shp):
         """Read historical boundaries shapefile into counties_df
@@ -268,6 +268,8 @@ class State:
                 insert_cursor.insertRow(nulls_to_nones(row))
 
     def setup_districts(self):
+        """Create districts labeled by their number (used as a string)
+        """
 
         print('Setting up districts...')
         district_numbers = self.output_df['district_number'].unique()
@@ -276,19 +278,19 @@ class State:
             self.districts.append(district)
 
     def calc_districts_versions(self):
+        """Get the district version info for each record, build the data frame, and rejoin all other info
+        """
         for district in self.districts:
             district.find_records_versions()
             district.build_versions_dataframe()
             district.join_version_information()
 
     def combine_district_dicts(self, out_path=None):
-        pass
-        # self.district_versions_df = pd.DataFrame()
-        # for district in self.districts:
-        #     self.district_versions_df = self.district_versions_df.append(district.district_records)
-
-        # if out_path:
-        #     self.district_versions_df.to_pickle(out_path)
+        self.district_versions_df = pd.DataFrame()
+        for district in self.districts:
+            self.district_versions_df = self.district_versions_df.append(district.versions_full_info_df)
+        if out_path:
+            self.district_versions_df.to_pickle(out_path)
 
 
 class County:
@@ -491,8 +493,9 @@ class District:
             )
         }
 
-    def build_versions_dataframes(self):
-
+    def build_versions_dataframe(self):
+        """Each record with its district version identified by 'district-number_date': '1_1896-01-06'
+        """
         versions = []
         for row_key, version_list in self.record_and_versions.items():
             for date in version_list:
@@ -502,6 +505,8 @@ class District:
         self.versions_df = pd.DataFrame(versions, columns=['unique_row_key', 'district_key'])
 
     def join_version_information(self):
+        """For each record and district version, join all other info back in via unique_row_key
+        """
         self.versions_full_info_df = pd.merge(
             self.versions_df,
             self.district_records,
