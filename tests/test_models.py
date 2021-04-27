@@ -574,54 +574,54 @@ class TestDistricts:
         return [np.datetime64('2020-01-01'), np.datetime64('2021-01-01'), np.datetime64('2022-01-01')]
 
     def test_get_unique_district_versions_assigns_to_one(self, unique_dates, mocker):
-        distric_mock = mocker.Mock()
+        district_mock = mocker.Mock()
         start_date = np.datetime64('2020-01-01')
         end_date = np.datetime64('2020-12-31')
 
-        versions = models.District._get_unique_district_versions(distric_mock, unique_dates, start_date, end_date)
+        versions = models.District._get_unique_district_versions(district_mock, unique_dates, start_date, end_date)
 
         assert versions == [np.datetime64('2020-01-01')]
 
     def test_get_unique_district_versions_assigns_to_two(self, unique_dates, mocker):
-        distric_mock = mocker.Mock()
+        district_mock = mocker.Mock()
         start_date = np.datetime64('2020-01-01')
         end_date = np.datetime64('2021-12-31')
 
-        versions = models.District._get_unique_district_versions(distric_mock, unique_dates, start_date, end_date)
+        versions = models.District._get_unique_district_versions(district_mock, unique_dates, start_date, end_date)
 
         assert versions == [np.datetime64('2020-01-01'), np.datetime64('2021-01-01')]
 
     def test_get_unique_district_versions_assigns_to_all_with_no_ending_date(self, unique_dates, mocker):
-        distric_mock = mocker.Mock()
+        district_mock = mocker.Mock()
         start_date = np.datetime64('2020-01-01')
         end_date = np.datetime64('nat')
 
-        versions = models.District._get_unique_district_versions(distric_mock, unique_dates, start_date, end_date)
+        versions = models.District._get_unique_district_versions(district_mock, unique_dates, start_date, end_date)
 
     def test_get_unique_district_versions_assigns_to_all_with_later_ending_date(self, unique_dates, mocker):
-        distric_mock = mocker.Mock()
+        district_mock = mocker.Mock()
         start_date = np.datetime64('2020-01-01')
         end_date = np.datetime64('2024-01-01')
 
-        versions = models.District._get_unique_district_versions(distric_mock, unique_dates, start_date, end_date)
+        versions = models.District._get_unique_district_versions(district_mock, unique_dates, start_date, end_date)
 
         assert versions == [np.datetime64('2020-01-01'), np.datetime64('2021-01-01'), np.datetime64('2022-01-01')]
 
     def test_get_unique_district_versions_assigns_to_last_two_with_no_ending_date(self, unique_dates, mocker):
-        distric_mock = mocker.Mock()
+        district_mock = mocker.Mock()
         start_date = np.datetime64('2021-01-01')
         end_date = np.datetime64('nat')
 
-        versions = models.District._get_unique_district_versions(distric_mock, unique_dates, start_date, end_date)
+        versions = models.District._get_unique_district_versions(district_mock, unique_dates, start_date, end_date)
 
         assert versions == [np.datetime64('2021-01-01'), np.datetime64('2022-01-01')]
 
     def test_get_unique_district_versions_assigns_to_last_two_with_later_ending_date(self, unique_dates, mocker):
-        distric_mock = mocker.Mock()
+        district_mock = mocker.Mock()
         start_date = np.datetime64('2021-01-01')
         end_date = np.datetime64('2024-01-01')
 
-        versions = models.District._get_unique_district_versions(distric_mock, unique_dates, start_date, end_date)
+        versions = models.District._get_unique_district_versions(district_mock, unique_dates, start_date, end_date)
 
         assert versions == [np.datetime64('2021-01-01'), np.datetime64('2022-01-01')]
 

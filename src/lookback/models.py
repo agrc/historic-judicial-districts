@@ -279,6 +279,8 @@ class State:
             district.calc_change_dates()
 
     #: TODO: figure out this step- we need to create something we can dissolve against.
+    #: Dissolve is the wrong word. A record can (and many will) belong to a multiple districts.
+    #: Need to make copies, a unique df for each district version? Then combine them all and dissolve?
     def combine_district_dicts(self, out_path=None):
         self.district_versions_dict = defaultdict(list)
         for district in self.districts:
@@ -473,6 +475,13 @@ class District:
         self.versions_dict = None
 
     def calc_change_dates(self):
+        """Generates a dictionary of all the versions that each unique row belongs to.
+
+        Builds set of unique change dates in the District, which becomes its versions. For each record, determine which
+        of these change dates it belongs to/is present in via _get_unique_district_versions and a dictionary
+        comprehension.
+        """
+
         self.district_records['unique_row_key'] = [
             str(shp_key) + '__' + str(dst_key)
             for shp_key, dst_key in zip(self.district_records['shape_key'], self.district_records['district_key'])
@@ -489,6 +498,21 @@ class District:
         }
 
     def _get_unique_district_versions(self, unique_dates, start_date, end_date):
+        """Get a list of versions this record is part of based on start and end date.
+
+        Operates on the start and end date of a single record from a combined district and shape table. Identifies which
+        change dates the record belongs to by checking its temporal bounds against each change date in the District's
+        set of change dates.
+
+        Args:
+            unique_dates (list[np.datetime64?]): The change dates associated with this district.
+            start_date (np.datetime64?): The record's starting date.
+            end_date (np.datetime64?): The record's ending date. Can be the day before a change date in unique_dates
+            or NaT if it's the most current version.
+
+        Returns:
+            list[np.datetime64?]: list of change dates from unique dates that this record belongs to.
+        """
         versions_list = []
         for date in unique_dates:
             #: first check: does the record start before this change date and end after it?
