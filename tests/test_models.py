@@ -625,6 +625,77 @@ class TestDistricts:
 
         assert versions == [np.datetime64('2021-01-01'), np.datetime64('2022-01-01')]
 
+    def test_build_versions_dataframes(self, mocker):
+        district_mock = mocker.Mock()
+        district_mock.label = '1'
+        district_mock.record_and_versions = {
+            's1_d1': [
+                np.datetime64('2020-01-01'),
+                np.datetime64('2021-01-01'),
+            ],
+            's1_d2': [
+                np.datetime64('2022-01-01'),
+                np.datetime64('2023-01-01'),
+            ],
+        }
+
+        models.District.build_versions_dataframes(district_mock)
+        assert district_mock.versions_df['unique_row_key'].tolist() == ['s1_d1', 's1_d1', 's1_d2', 's1_d2']
+        assert district_mock.versions_df['district_key'].tolist() == [
+            '1_2020-01-01',
+            '1_2021-01-01',
+            '1_2022-01-01',
+            '1_2023-01-01',
+        ]
+
+    def test_join_version_information_record_occurs_twice(self, mocker):
+
+        district_mock = mocker.Mock()
+        district_mock.versions_df = pd.DataFrame(
+            data={
+                'unique_row_key': ['s1_d1', 's2_d1', 's1_d1'],
+                'district_key': ['1_2020-01-01', '1_2020-01-01', '1_2021-01-01']
+            }
+        )
+        district_mock.district_records = pd.DataFrame(
+            data={
+                'unique_row_key': ['s1_d1', 's2_d1'],
+                'geometry': ['geometry1', 'geometry2']
+            }
+        )
+
+        models.District.join_version_information(district_mock)
+
+        assert district_mock.versions_full_info_df['unique_row_key'].tolist() == ['s1_d1', 's2_d1', 's1_d1']
+        assert district_mock.versions_full_info_df['district_key'].tolist() == [
+            '1_2020-01-01', '1_2020-01-01', '1_2021-01-01'
+        ]
+        assert district_mock.versions_full_info_df['geometry'].tolist() == ['geometry1', 'geometry2', 'geometry1']
+
+    def test_join_version_information_extra_geometries_ignored(self, mocker):
+
+        district_mock = mocker.Mock()
+        district_mock.versions_df = pd.DataFrame(
+            data={
+                'unique_row_key': ['s1_d1', 's2_d1', 's1_d1'],
+                'district_key': ['1_2020-01-01', '1_2020-01-01', '1_2021-01-01']
+            }
+        )
+        district_mock.district_records = pd.DataFrame(
+            data={
+                'unique_row_key': ['s1_d1', 's2_d1', 's5_d6'],
+                'geometry': ['geometry1', 'geometry2', 'geometry5']
+            }
+        )
+
+        models.District.join_version_information(district_mock)
+
+        assert district_mock.versions_full_info_df['unique_row_key'].tolist() == ['s1_d1', 's2_d1', 's1_d1']
+        assert district_mock.versions_full_info_df['district_key'].tolist() == [
+            '1_2020-01-01', '1_2020-01-01', '1_2021-01-01'
+        ]
+        assert district_mock.versions_full_info_df['geometry'].tolist() == ['geometry1', 'geometry2', 'geometry1']
+
     # def test_assign_versions_comprehension(self, mocker, joined_df):
     #     district_mock = mocker.Mock()
 
