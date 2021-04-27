@@ -1,5 +1,6 @@
 from collections import defaultdict, namedtuple
 from pathlib import Path
+from typing import List
 
 import arcpy
 import numpy as np
@@ -87,10 +88,10 @@ class State:
     def __init__(self):
         self.all_shapes_df = None
         self.all_districts_df = None
-        self.counties = []
+        self.counties: List[County] = []
         self.combined_change_df = None
         self.output_df = None
-        self.districts = []
+        self.districts: List[District] = []
         self.district_versions_dict = {}
         # self.district_versions_df = None
 
@@ -274,23 +275,14 @@ class State:
             district = District(number, self.output_df)
             self.districts.append(district)
 
-    def calc_districts(self):
+    def calc_districts_versions(self):
         for district in self.districts:
-            district.calc_change_dates()
+            district.find_records_versions()
+            district.build_versions_dataframe()
+            district.join_version_information()
 
-    #: TODO: figure out this step- we need to create something we can dissolve against.
-    #: Dissolve is the wrong word. A record can (and many will) belong to a multiple districts.
-    #: Need to make copies, a unique df for each district version? Then combine them all and dissolve?
     def combine_district_dicts(self, out_path=None):
-        self.district_versions_dict = defaultdict(list)
-        for district in self.districts:
-            for change_date, unique_key_list in district.versions_dict.items():
-                self.district_versions_dict[change_date].extend(unique_key_list)
-
-        if out_path:
-            versions_df = pd.DataFrame(dict([(k, pd.Series(v)) for k, v in self.district_versions_dict.items()]))
-            versions_df.to_pickle(out_path)
-
+        pass
         # self.district_versions_df = pd.DataFrame()
         # for district in self.districts:
         #     self.district_versions_df = self.district_versions_df.append(district.district_records)
@@ -471,10 +463,12 @@ class District:
 
     def __init__(self, label, joined_df):
         self.label = label
-        self.district_records = joined_df[joined_df['district_number'] == self.label].copy()
-        self.versions_dict = None
+        self.district_records: pd.DataFrame = joined_df[joined_df['district_number'] == self.label].copy()
+        self.record_and_versions = None
+        self.versions_df: pd.DataFrame
+        self.versions_full_info_df: pd.DataFrame
 
-    def calc_change_dates(self):
+    def find_records_versions(self):
         """Generates a dictionary of all the versions that each unique row belongs to.
 
         Builds set of unique change dates in the District, which becomes its versions. For each record, determine which
@@ -488,7 +482,7 @@ class District:
         ]
 
         unique_change_dates = list(self.district_records['date'].unique())
-        self.versions_dict = {
+        self.record_and_versions = {
             row_key: self._get_unique_district_versions(unique_change_dates, start_date, end_date)
             for row_key, start_date, end_date in zip(
                 self.district_records['unique_row_key'],
@@ -496,6 +490,26 @@ class District:
                 self.district_records['change_end_date'],
             )
         }
+
+    def build_versions_dataframes(self):
+
+        versions = []
+        for row_key, version_list in self.record_and_versions.items():
+            for date in version_list:
+                #: [(row_key1, d_key1), (row_key2, d_key1), ...]
+                versions.append((row_key, f'{self.label}_{pd.to_datetime(date).strftime("%Y-%m-%d")}'))
+
+        self.versions_df = pd.DataFrame(versions, columns=['unique_row_key', 'district_key'])
+
+    def join_version_information(self):
+        self.versions_full_info_df = pd.merge(
+            self.versions_df,
+            self.district_records,
+            how='left',
+            left_on='unique_row_key',
+            right_on='unique_row_key',
+            validate='m:1'
+        )
 
     def _get_unique_district_versions(self, unique_dates, start_date, end_date):
         """Get a list of versions this record is part of based on start and end date.
