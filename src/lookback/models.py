@@ -219,12 +219,10 @@ class State:
 
         self.output_df.rename(columns=df_renamer, inplace=True)
 
-    #: TODO: move the renaming out of this method so that the district merging stuff has access to the sane names.
     def output_to_featureclass(self, out_path, template_shp):
         """Write final data in output_df out to specified feature class.
 
-        Manually sets the output fields and then copies/renames the dataframe
-        columns to match these field names.
+        Manually sets the output fields, which should match the dataframe columns as renamed previously.
 
         Args:
             out_path (str): Path to a feature class (can not exist already)
@@ -294,6 +292,53 @@ class State:
             self.district_versions_df = self.district_versions_df.append(district.versions_full_info_df)
         if out_path:
             self.district_versions_df.to_pickle(out_path)
+
+    def output_merged_districts_to_memory_featureclass(self, out_path, template_shp):
+
+        # print(f'Creating output {out_path}...')
+        # out_gdb = str(Path(out_path).parent)
+        # out_name = str(Path(out_path).name)
+        template_prj = str(Path(template_shp).with_suffix('.prj'))
+        arcpy.management.CreateFeatureclass('memory', 'districts_fc', 'POLYGON', spatial_reference=template_prj)
+
+        # new_fields = [
+        #     ['CHANGE_DATE', 'DATE'],  #: change_df date
+        #     ['CHANGE_END_DATE', 'DATE'],  #: change_df change_end_date
+        #     ['COUNTY_KEY', 'TEXT'],  #: change_df county_name
+        #     ['SHP_NAME', 'TEXT'],  #: shape_df NAME
+        #     ['SHP_ID', 'TEXT'],  #: shape_df ID
+        #     ['SHP_FIPS', 'TEXT'],  #: shape_df FIPS
+        #     ['SHP_VERSION', 'TEXT'],  #: shape_df VERSION
+        #     ['DST_NAME', 'TEXT'],  #: district_df CountyName
+        #     ['DST_NUMBER', 'TEXT'],  #: district_df district
+        #     ['SHP_START_DATE', 'DATE'],  #: shape_df START_DATE
+        #     ['SHP_END_DATE', 'DATE'],  #: shape_df END_DATE
+        #     ['DST_START_DATE', 'DATE'],  #: district_df date
+        #     ['DST_END_DATE', 'DATE'],  #: district_df end_date
+        #     ['SHP_CHANGE', 'TEXT'],  #: shape_df CHANGE
+        #     ['SHP_CITATION', 'TEXT'],  #: shape_df CITATION
+        #     ['SHP_AREA_SQMI', 'LONG'],  #: shape_df AREA_SQMI
+        #     ['SHP_KEY', 'TEXT'],  #: shape_df shape_key
+        #     ['DST_KEY', 'TEXT'],  #: district_df district_key
+        # ]
+
+        new_fields = [
+            ['DST_VERSION_KEY', 'TEXT'],  #: key for the dissolve
+            ['UNIQUE_ROW_KEY', 'TEXT'],  #: ???
+        ]
+
+        arcpy.management.AddFields('memory\districts_fc', new_fields)
+
+        # print(f'Writing out to {out_path}...')
+
+        #: Rename the data frame columns to match the output fields
+        cursor_fields = [field_name[0] for field_name in new_fields]  #: Only look at the renamed columns
+        cursor_fields.append('SHAPE@')  #: Make sure we've got geometry
+        with arcpy.da.InsertCursor('memory\districts_fc', list(cursor_fields)) as insert_cursor:
+            for row in self.district_versions_df[cursor_fields].values.tolist():
+                insert_cursor.insertRow(nulls_to_nones(row))
+
+        arcpy.management.Dissolve('memory\districts_fc', out_path, 'DST_VERSION_KEY')
 
 
 class County:
@@ -469,7 +514,7 @@ class District:
     def __init__(self, label, joined_df):
         self.label = label
         self.district_records: pd.DataFrame = joined_df[joined_df['DST_NUMBER'] == self.label].copy()
-        self.record_and_versions = None
+        self.row_key_and_versions = None
         self.versions_df: pd.DataFrame
         self.versions_full_info_df: pd.DataFrame
 
@@ -487,7 +532,7 @@ class District:
         ]
 
         unique_change_dates = list(self.district_records['CHANGE_DATE'].unique())
-        self.record_and_versions = {
+        self.row_key_and_versions = {
             row_key: self._get_unique_district_versions(unique_change_dates, start_date, end_date)
             for row_key, start_date, end_date in zip(
                 self.district_records['UNIQUE_ROW_KEY'],
@@ -500,7 +545,7 @@ class District:
         """Each record with its district version identified by 'district-number_date': '1_1896-01-06'
         """
         versions = []
-        for row_key, version_list in self.record_and_versions.items():
+        for row_key, version_list in self.row_key_and_versions.items():
             for date in version_list:
                 #: [(row_key1, d_key1), (row_key2, d_key1), ...]
                 versions.append((row_key, f'{self.label}_{pd.to_datetime(date).strftime("%Y-%m-%d")}'))

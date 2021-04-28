@@ -12,7 +12,8 @@ def main():
     districts_csv = r'C:\gis\Projects\HistoricCounties\Data\JudicialDistricts\test.csv'
     counties_shp = r'C:\gis\Projects\HistoricCounties\Data\HistoricalCountyBoundaries\UT_Historical_Counties\UT_Historical_Counties.shp'
     change_dates_csv = r'C:\gis\Projects\HistoricCounties\Data\JudicialDistricts\change_dates.csv'
-    output_fc = r'C:\gis\Projects\HistoricCounties\HistoricCounties.gdb\test_output'
+    counties_output_fc = r'C:\gis\Projects\HistoricCounties\HistoricCounties.gdb\test_output_counties'
+    districts_output_fc = r'C:\gis\Projects\HistoricCounties\HistoricCounties.gdb\test_output_districts'
 
     state = State()
     state.load_counties(counties_shp)
@@ -23,12 +24,13 @@ def main():
     # print(state.counties[1].change_dates_df)
     state.combine_change_dfs(change_dates_csv)
     state.get_shape_district_info()
-    # state.output_to_featureclass(output_fc, counties_shp)
+    state.output_to_featureclass(counties_output_fc, counties_shp)
 
     state.setup_districts()
     state.calc_districts_versions()
     state.combine_district_dicts(r'C:\gis\Projects\HistoricCounties\Data\JudicialDistricts\district_versions.pkl')
-    # print()
+    state.output_merged_districts_to_memory_featureclass(districts_output_fc, counties_shp)
+
     # state.verify_counties()
 
 
