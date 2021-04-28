@@ -1,9 +1,8 @@
-from collections import defaultdict, namedtuple
+from collections import namedtuple
 from pathlib import Path
 from typing import List
 
 import arcpy
-import numpy as np
 import pandas as pd
 
 
@@ -219,6 +218,12 @@ class State:
 
         self.output_df.rename(columns=df_renamer, inplace=True)
 
+        #: Add DST_VERSION key to output for joining to dissolved districts
+        self.output_df['COMBINED_DST_KEY'] = [
+            '_'.join([number, date.strftime('%Y-%m-%d')])
+            for number, date in zip(self.output_df['DST_NUMBER'], self.output_df['CHANGE_DATE'])
+        ]
+
     def output_to_featureclass(self, out_path, template_shp):
         """Write final data in output_df out to specified feature class.
 
@@ -240,6 +245,7 @@ class State:
             ['CHANGE_DATE', 'DATE'],  #: change_df date
             ['CHANGE_END_DATE', 'DATE'],  #: change_df change_end_date
             ['COUNTY_KEY', 'TEXT'],  #: change_df county_name
+            ['COMBINED_DST_KEY', 'TEXT'],  #: DST_NUMBER + _ + CHANGE_DATE
             ['SHP_NAME', 'TEXT'],  #: shape_df NAME
             ['SHP_ID', 'TEXT'],  #: shape_df ID
             ['SHP_FIPS', 'TEXT'],  #: shape_df FIPS
@@ -287,58 +293,46 @@ class State:
             district.join_version_information()
 
     def combine_district_dicts(self, out_path=None):
+        """Merge all the district's dataframes into a single dataframe, pickle if desired
+
+        Args:
+            out_path (str, optional): Path to pickle combined dataframe to. Defaults to None.
+        """
+
         self.district_versions_df = pd.DataFrame()
         for district in self.districts:
             self.district_versions_df = self.district_versions_df.append(district.versions_full_info_df)
         if out_path:
             self.district_versions_df.to_pickle(out_path)
 
-    def output_merged_districts_to_memory_featureclass(self, out_path, template_shp):
+    def dissolve_districts(self, out_path, template_shp):
+        """Dissolve the districts based on DST_VERSION_KEY to out_path.
 
-        # print(f'Creating output {out_path}...')
-        # out_gdb = str(Path(out_path).parent)
-        # out_name = str(Path(out_path).name)
+        Args:
+            out_path (str): Feature class to save dissolved districts
+            template_shp (str): Shapefile to use as template for coord system
+        """
+
+        print(f'Dissolving districts to {out_path}...')
+
         template_prj = str(Path(template_shp).with_suffix('.prj'))
         arcpy.management.CreateFeatureclass('memory', 'districts_fc', 'POLYGON', spatial_reference=template_prj)
-
-        # new_fields = [
-        #     ['CHANGE_DATE', 'DATE'],  #: change_df date
-        #     ['CHANGE_END_DATE', 'DATE'],  #: change_df change_end_date
-        #     ['COUNTY_KEY', 'TEXT'],  #: change_df county_name
-        #     ['SHP_NAME', 'TEXT'],  #: shape_df NAME
-        #     ['SHP_ID', 'TEXT'],  #: shape_df ID
-        #     ['SHP_FIPS', 'TEXT'],  #: shape_df FIPS
-        #     ['SHP_VERSION', 'TEXT'],  #: shape_df VERSION
-        #     ['DST_NAME', 'TEXT'],  #: district_df CountyName
-        #     ['DST_NUMBER', 'TEXT'],  #: district_df district
-        #     ['SHP_START_DATE', 'DATE'],  #: shape_df START_DATE
-        #     ['SHP_END_DATE', 'DATE'],  #: shape_df END_DATE
-        #     ['DST_START_DATE', 'DATE'],  #: district_df date
-        #     ['DST_END_DATE', 'DATE'],  #: district_df end_date
-        #     ['SHP_CHANGE', 'TEXT'],  #: shape_df CHANGE
-        #     ['SHP_CITATION', 'TEXT'],  #: shape_df CITATION
-        #     ['SHP_AREA_SQMI', 'LONG'],  #: shape_df AREA_SQMI
-        #     ['SHP_KEY', 'TEXT'],  #: shape_df shape_key
-        #     ['DST_KEY', 'TEXT'],  #: district_df district_key
-        # ]
 
         new_fields = [
             ['DST_VERSION_KEY', 'TEXT'],  #: key for the dissolve
             ['UNIQUE_ROW_KEY', 'TEXT'],  #: ???
         ]
 
-        arcpy.management.AddFields('memory\districts_fc', new_fields)
-
-        # print(f'Writing out to {out_path}...')
+        arcpy.management.AddFields(r'memory\districts_fc', new_fields)
 
         #: Rename the data frame columns to match the output fields
         cursor_fields = [field_name[0] for field_name in new_fields]  #: Only look at the renamed columns
         cursor_fields.append('SHAPE@')  #: Make sure we've got geometry
-        with arcpy.da.InsertCursor('memory\districts_fc', list(cursor_fields)) as insert_cursor:
+        with arcpy.da.InsertCursor(r'memory\districts_fc', list(cursor_fields)) as insert_cursor:
             for row in self.district_versions_df[cursor_fields].values.tolist():
                 insert_cursor.insertRow(nulls_to_nones(row))
 
-        arcpy.management.Dissolve('memory\districts_fc', out_path, 'DST_VERSION_KEY')
+        arcpy.management.Dissolve(r'memory\districts_fc', out_path, 'DST_VERSION_KEY')
 
 
 class County:
@@ -510,6 +504,9 @@ class County:
 
 
 class District:
+    """Data and processing for merging all the different county/district recrods into single features based on their
+    county number and change date.
+    """
 
     def __init__(self, label, joined_df):
         self.label = label
