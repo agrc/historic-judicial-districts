@@ -29,7 +29,7 @@ def main():
     state.setup_districts()
     state.calc_districts_versions()
     state.combine_district_dicts(r'C:\gis\Projects\HistoricCounties\Data\JudicialDistricts\district_versions.pkl')
-    state.output_merged_districts_to_memory_featureclass(districts_output_fc, counties_shp)
+    state.dissolve_districts(districts_output_fc, counties_shp)
 
     # state.verify_counties()
 
