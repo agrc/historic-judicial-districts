@@ -628,7 +628,7 @@ class TestDistricts:
     def test_build_versions_dataframes(self, mocker):
         district_mock = mocker.Mock()
         district_mock.label = '1'
-        district_mock.record_and_versions = {
+        district_mock.row_key_and_versions = {
             's1_d1': [
                 np.datetime64('2020-01-01'),
                 np.datetime64('2021-01-01'),
