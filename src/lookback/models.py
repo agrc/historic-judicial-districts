@@ -43,6 +43,31 @@ def nulls_to_nones(row):
     return new_row
 
 
+def _fix_change_end_dates(change_end_date, shape_key, shape_end, district_end):
+
+    #: Change end date scenarios:
+    #:  District exists before shape, shape then changes before district does (Duchesne/dagget)
+    #:      change date should be when shape is created, not when district changes
+    #:      captured properly in existing change end date is next change date - 1
+    #:  Extinct counties: Last record should have a change end date that is max(shp end date, district end date)
+    #:      not captured by change end date is next change date - 1 because there is no next date
+    #:  Shape exists before district
+    #:      captured properly in existing change end date is next change date - 1 because next date is usually
+    #:          district creation date
+    #:  Extant counties: Shape ends at 2003, district does not have an end date
+    #:      captured properly in existing change end date is next change date - 1 because there isn't a next
+    #:          so it gets NaT
+    # self.change_dates_df['change_end_date'] = self.change_dates_df['change_date'].shift(-1) - pd.Timedelta(days=1)
+
+    #: If it's an extinct county (utt in shape name) with a NaT end time, return the latest of the shape or district end
+    #: utt_richland should pass because it's change_date shouldn't be null due to there being a row after for uts_rich
+    if pd.isnull(change_end_date) and 'utt_' in shape_key:
+        return max(shape_end, district_end)
+
+    #: Otherwise, just return the original date
+    return change_end_date
+
+
 class ChangeDate:
     """Holds information about unique dates when either shape or district change
 
@@ -192,6 +217,7 @@ class State:
         self.output_df = pd.DataFrame()
         for county in self.counties:
             county.join_shapes_and_districts()
+            county.add_extra_fields()
             self.output_df = self.output_df.append(county.joined_df)
 
         df_renamer = {
@@ -210,19 +236,13 @@ class State:
             'shape_key': 'SHP_KEY',
             'district_key': 'DST_KEY',
             'SHAPE@': 'SHAPE@',
-            'date': 'CHANGE_DATE',
+            'change_date': 'CHANGE_DATE',
             'county_name': 'COUNTY_KEY',
             'CountyName': 'DST_NAME',
             'change_end_date': 'CHANGE_END_DATE',
         }
 
         self.output_df.rename(columns=df_renamer, inplace=True)
-
-        #: Add DST_VERSION key to output for joining to dissolved districts
-        self.output_df['COMBINED_DST_KEY'] = [
-            '_'.join([number, date.strftime('%Y-%m-%d')])
-            for number, date in zip(self.output_df['DST_NUMBER'], self.output_df['CHANGE_DATE'])
-        ]
 
     def output_to_featureclass(self, out_path, template_shp):
         """Write final data in output_df out to specified feature class.
@@ -412,7 +432,7 @@ class County:
                     change_date.district_version = district_row.district_key
                     break
                 #: If we've gotten to the end of the district rows without breaking, and it doesn't have an end date,
-                #and it's after the first date district date, assume that it is the final district and should be added
+                #: and it's after the first date district date, assume that it is the final district and should be added
                 if (
                     district_row == district_df_rows[-1] and pd.isnull(district_row.EndDate) and
                     change_date.date > first_district_date
@@ -432,16 +452,13 @@ class County:
         #: Now we can use a namedtuple to translate our object to dataframe rows
         #: (Didn't use one at first because we had to alter the list of ChangeDate items in the iterations)
         ChangeDatesTuple = namedtuple(
-            'ChangeDatesTuple', 'date county_name county_version district_number district_version'
+            'ChangeDatesTuple', 'change_date county_name county_version district_number district_version'
         )
         new_dates = [
             ChangeDatesTuple(cd.date, cd.county_name, cd.county_version, cd.district_number, cd.district_version)
             for cd in change_dates
         ]
         self.change_dates_df = pd.DataFrame(new_dates)
-
-        #: End date is one day before the next rows start date
-        self.change_dates_df['change_end_date'] = self.change_dates_df['date'].shift(-1) - pd.Timedelta(days=1)
 
     def join_shapes_and_districts(self):
         """Join shape and district info based on shape/district_keys
@@ -466,6 +483,28 @@ class County:
             right_on='district_key',
             validate='m:1'
         )
+
+    def add_extra_fields(self):
+        """Add combined district version key and a properly-calculated change end date to the data
+        """
+
+        #: Add DST_VERSION key to output for joining to dissolved districts
+        self.joined_df['COMBINED_DST_KEY'] = [
+            '_'.join([number, date.strftime('%Y-%m-%d')])
+            for number, date in zip(self.joined_df['district_number'], self.joined_df['change_date'])
+        ]
+
+        #: End date is one day before the next rows start date
+        self.joined_df['change_end_date'] = self.joined_df['change_date'].shift(-1) - pd.Timedelta(days=1)
+        #: Fix the extinct counties' end dates
+        #: END_DATE: shape end date, EndDate: district end date
+        self.joined_df['change_end_date'] = [
+            _fix_change_end_dates(change_end_date, shape_key, shape_end, district_end)
+            for change_end_date, shape_key, shape_end, district_end in zip(
+                self.joined_df['change_end_date'], self.joined_df['county_version'], self.joined_df['END_DATE'],
+                self.joined_df['EndDate']
+            )
+        ]
 
     def verify_county_districts(self):
         """Verify the districts for this county.

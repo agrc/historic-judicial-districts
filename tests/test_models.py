@@ -46,7 +46,7 @@ class TestChangeDatesGeneralCase:
 
         models.County.calc_change_dates(county)
 
-        test_columns = ['date', 'county_name', 'county_version', 'district_number', 'district_version']
+        test_columns = ['change_date', 'county_name', 'county_version', 'district_number', 'district_version']
 
         assert county.change_dates_df.loc[0, test_columns].values.tolist() == [
             np.datetime64('2020-02-05'), 'co', 'uts_co_S1', 'n/a', 'n/a'
@@ -60,7 +60,7 @@ class TestChangeDatesGeneralCase:
 
         models.County.calc_change_dates(county)
 
-        test_columns = ['date', 'county_name', 'county_version', 'district_number', 'district_version']
+        test_columns = ['change_date', 'county_name', 'county_version', 'district_number', 'district_version']
 
         assert county.change_dates_df.loc[1, test_columns].values.tolist() == [
             np.datetime64('2020-02-10'), 'co', 'uts_co_S1', '1', 'co_D1'
@@ -74,7 +74,7 @@ class TestChangeDatesGeneralCase:
 
         models.County.calc_change_dates(county)
 
-        test_columns = ['date', 'county_name', 'county_version', 'district_number', 'district_version']
+        test_columns = ['change_date', 'county_name', 'county_version', 'district_number', 'district_version']
 
         assert county.change_dates_df.loc[2, test_columns].values.tolist() == [
             np.datetime64('2020-02-15'), 'co', 'uts_co_S1', '2', 'co_D2'
@@ -88,7 +88,7 @@ class TestChangeDatesGeneralCase:
 
         models.County.calc_change_dates(county)
 
-        test_columns = ['date', 'county_name', 'county_version', 'district_number', 'district_version']
+        test_columns = ['change_date', 'county_name', 'county_version', 'district_number', 'district_version']
 
         assert county.change_dates_df.loc[3, test_columns].values.tolist() == [
             np.datetime64('2020-02-20'), 'co', 'uts_co_S2', '2', 'co_D2'
@@ -102,7 +102,7 @@ class TestChangeDatesGeneralCase:
 
         models.County.calc_change_dates(county)
 
-        test_columns = ['date', 'county_name', 'county_version', 'district_number', 'district_version']
+        test_columns = ['change_date', 'county_name', 'county_version', 'district_number', 'district_version']
 
         assert county.change_dates_df.loc[4, test_columns].values.tolist() == [
             np.datetime64('2020-02-25'), 'co', 'uts_co_S3', '3', 'co_D3'
@@ -116,7 +116,7 @@ class TestChangeDatesGeneralCase:
 
         models.County.calc_change_dates(county)
 
-        test_columns = ['date', 'county_name', 'county_version', 'district_number', 'district_version']
+        test_columns = ['change_date', 'county_name', 'county_version', 'district_number', 'district_version']
 
         assert county.change_dates_df.loc[5, test_columns].values.tolist() == [
             np.datetime64('2020-03-01'), 'co', 'uts_co_S4', '4', 'co_D4'
@@ -165,7 +165,7 @@ class TestChangeDatesRichlandCase:
 
         models.County.calc_change_dates(county)
 
-        test_columns = ['date', 'county_name', 'county_version', 'district_number', 'district_version']
+        test_columns = ['change_date', 'county_name', 'county_version', 'district_number', 'district_version']
 
         assert county.change_dates_df.loc[0, test_columns].values.tolist() == [
             np.datetime64('2020-02-01'), 'rich', 'uts_richland_S1', 'n/a', 'n/a'
@@ -180,7 +180,7 @@ class TestChangeDatesRichlandCase:
 
         models.County.calc_change_dates(county)
 
-        test_columns = ['date', 'county_name', 'county_version', 'district_number', 'district_version']
+        test_columns = ['change_date', 'county_name', 'county_version', 'district_number', 'district_version']
 
         assert county.change_dates_df.loc[1, test_columns].values.tolist() == [
             np.datetime64('2020-02-05'), 'rich', 'uts_richland_S1', '1', 'richland_D1'
@@ -195,7 +195,7 @@ class TestChangeDatesRichlandCase:
 
         models.County.calc_change_dates(county)
 
-        test_columns = ['date', 'county_name', 'county_version', 'district_number', 'district_version']
+        test_columns = ['change_date', 'county_name', 'county_version', 'district_number', 'district_version']
 
         assert county.change_dates_df.loc[2, test_columns].values.tolist() == [
             np.datetime64('2020-02-10'), 'rich', 'uts_rich_S1', '1', 'rich_D1'
@@ -212,11 +212,139 @@ class TestChangeDatesRichlandCase:
 
         models.County.calc_change_dates(county)
 
-        test_columns = ['date', 'county_name', 'county_version', 'district_number', 'district_version']
+        test_columns = ['change_date', 'county_name', 'county_version', 'district_number', 'district_version']
 
         assert county.change_dates_df.loc[4, test_columns].values.tolist() == [
             np.datetime64('2020-02-20'), 'rich', 'uts_rich_S2', '2', 'rich_D2'
         ]
+
+
+class TestAddingExtraFields:
+
+    def test_unique_district_key_creation(self, mocker):
+        county_mock = mocker.Mock()
+        county_mock.joined_df = pd.DataFrame(
+            data={
+                'change_date': ['2020-01-01', '2030-01-01'],
+                'district_number': ['1', '1S'],
+                'EndDate': ['2029-12-31', '2039-12-31'],
+                'county_version': ['uts_foo_S1', 'uts_foo_S1'],
+                'END_DATE': ['2029-12-31', '2039-12-31'],
+            }
+        )
+        county_mock.joined_df['change_date'] = pd.to_datetime(county_mock.joined_df['change_date'])
+
+        models.County.add_extra_fields(county_mock)
+
+        test_columns = ['COMBINED_DST_KEY']
+        assert county_mock.joined_df.loc[0, test_columns].values.tolist() == ['1_2020-01-01']
+        assert county_mock.joined_df.loc[1, test_columns].values.tolist() == ['1S_2030-01-01']
+
+    def test_normal_county_mid_cycle_district_changes(self, mocker):
+        county_mock = mocker.Mock()
+        county_mock.joined_df = pd.DataFrame(
+            data={
+                'change_date': ['2020-01-01', '2030-01-01', '2040-01-01'],  #: 3 so that there's a +1 for end date calc
+                'district_number': ['1', '1S', '2S'],
+                'EndDate': ['2029-12-31', '2039-12-31', '2049-12-31'],  #: District end date
+                'county_version': ['uts_foo_S1', 'uts_foo_S1', 'uts_foo_S1'],  #: uts_something_Sx
+                'END_DATE': ['2049-12-31', '2049-12-31', '2049-12-31'],  #: shape end date
+            }
+        )
+        county_mock.joined_df['change_date'] = pd.to_datetime(county_mock.joined_df['change_date'])
+        county_mock.joined_df['END_DATE'] = pd.to_datetime(county_mock.joined_df['END_DATE'])
+        county_mock.joined_df['EndDate'] = pd.to_datetime(county_mock.joined_df['EndDate'])
+
+        models.County.add_extra_fields(county_mock)
+
+        test_columns = ['change_end_date']
+        assert county_mock.joined_df.loc[0, test_columns].values.tolist() == [np.datetime64('2029-12-31')]
+        assert county_mock.joined_df.loc[1, test_columns].values.tolist() == [np.datetime64('2039-12-31')]
+
+    def test_normal_county_mid_cycle_shape_changes(self, mocker):
+        county_mock = mocker.Mock()
+        county_mock.joined_df = pd.DataFrame(
+            data={
+                'change_date': ['2020-01-01', '2030-01-01', '2040-01-01'],  #: 3 so that there's a +1 for end date calc
+                'district_number': ['1', '1', '1'],
+                'EndDate': ['2049-12-31', '2049-12-31', '2049-12-31'],  #: District end date
+                'county_version': ['uts_foo_S1', 'uts_foo_S2', 'uts_foo_S3'],  #: uts_something_Sx
+                'END_DATE': ['2029-12-31', '2039-12-31', '2049-12-31'],  #: shape end date
+            }
+        )
+        county_mock.joined_df['change_date'] = pd.to_datetime(county_mock.joined_df['change_date'])
+        county_mock.joined_df['END_DATE'] = pd.to_datetime(county_mock.joined_df['END_DATE'])
+        county_mock.joined_df['EndDate'] = pd.to_datetime(county_mock.joined_df['EndDate'])
+
+        models.County.add_extra_fields(county_mock)
+
+        test_columns = ['change_end_date']
+        assert county_mock.joined_df.loc[0, test_columns].values.tolist() == [np.datetime64('2029-12-31')]
+        assert county_mock.joined_df.loc[1, test_columns].values.tolist() == [np.datetime64('2039-12-31')]
+
+    def test_normal_county_mid_cycle_both_change(self, mocker):
+        county_mock = mocker.Mock()
+        county_mock.joined_df = pd.DataFrame(
+            data={
+                'change_date': ['2020-01-01', '2030-01-01', '2040-01-01'],  #: 3 so that there's a +1 for end date calc
+                'district_number': ['1', '1S', '5'],
+                'EndDate': ['2029-12-31', '2039-12-31', '2049-12-31'],  #: District end date
+                'county_version': ['uts_foo_S1', 'uts_foo_S2', 'uts_foo_S3'],  #: uts_something_Sx
+                'END_DATE': ['2029-12-31', '2039-12-31', '2049-12-31'],  #: shape end date
+            }
+        )
+        county_mock.joined_df['change_date'] = pd.to_datetime(county_mock.joined_df['change_date'])
+        county_mock.joined_df['END_DATE'] = pd.to_datetime(county_mock.joined_df['END_DATE'])
+        county_mock.joined_df['EndDate'] = pd.to_datetime(county_mock.joined_df['EndDate'])
+
+        models.County.add_extra_fields(county_mock)
+
+        test_columns = ['change_end_date']
+        assert county_mock.joined_df.loc[0, test_columns].values.tolist() == [np.datetime64('2029-12-31')]
+        assert county_mock.joined_df.loc[1, test_columns].values.tolist() == [np.datetime64('2039-12-31')]
+
+    def test_normal_county_end_district_end_notatime(self, mocker):
+        county_mock = mocker.Mock()
+        county_mock.joined_df = pd.DataFrame(
+            data={
+                'change_date': ['2020-01-01', '2030-01-01'],  #: 3 so that there's a +1 for end date calc
+                'district_number': ['1', '1S'],
+                'EndDate': ['2029-12-31', None],  #: District end date
+                'county_version': ['uts_foo_S1', 'uts_foo_S1'],  #: uts_something_Sx
+                'END_DATE': ['2029-12-31', '2037-07-07'],  #: shape end date (shape ends before current time)
+            }
+        )
+        county_mock.joined_df['change_date'] = pd.to_datetime(county_mock.joined_df['change_date'])
+        county_mock.joined_df['END_DATE'] = pd.to_datetime(county_mock.joined_df['END_DATE'])
+        county_mock.joined_df['EndDate'] = pd.to_datetime(county_mock.joined_df['EndDate'])
+
+        models.County.add_extra_fields(county_mock)
+
+        test_columns = ['change_end_date']
+        assert county_mock.joined_df.loc[0, test_columns].values.tolist() == [np.datetime64('2029-12-31')]
+        assert pd.isnull(county_mock.joined_df.loc[1, test_columns].values.tolist()[0])
+
+    def test_extinct_county_end_both_same_date(self, mocker):
+        county_mock = mocker.Mock()
+        county_mock.joined_df = pd.DataFrame(
+            data={
+                'change_date': ['2020-01-01', '2030-01-01'],  #: 3 so that there's a +1 for end date calc
+                'district_number': ['1', '1S'],
+                'EndDate': ['2029-12-31', '2037-07-07'],  #: District end date
+                'county_version': ['utt_extinct_S1', 'utt_extinct_S1'],  #: utt for territory, all utt except richland
+                #: are extinct
+                'END_DATE': ['2029-12-31', '2037-07-07'],  #: shape end date
+            }
+        )
+        county_mock.joined_df['change_date'] = pd.to_datetime(county_mock.joined_df['change_date'])
+        county_mock.joined_df['END_DATE'] = pd.to_datetime(county_mock.joined_df['END_DATE'])
+        county_mock.joined_df['EndDate'] = pd.to_datetime(county_mock.joined_df['EndDate'])
+
+        models.County.add_extra_fields(county_mock)
+
+        test_columns = ['change_end_date']
+        assert county_mock.joined_df.loc[0, test_columns].values.tolist() == [np.datetime64('2029-12-31')]
+        assert county_mock.joined_df.loc[1, test_columns].values.tolist() == [np.datetime64('2037-07-07')]
 
 
 class TestCountyKeyGeneration:
@@ -415,7 +543,7 @@ class TestFinalJoins:
     def change_dates_df(self):
         change_dates_df = pd.DataFrame(
             data={
-                'date': ['2020-02-05', '2020-02-10', '2020-02-15', '2020-02-20', '2020-02-25', '2020-03-01'],
+                'change_date': ['2020-02-05', '2020-02-10', '2020-02-15', '2020-02-20', '2020-02-25', '2020-03-01'],
                 'county_name': ['co', 'co', 'co', 'co', 'co', 'co'],
                 'county_version': ['uts_co_S1', 'uts_co_S1', 'uts_co_S1', 'uts_co_S2', 'uts_co_S3', 'uts_co_S4'],
                 'district_number': ['n/a', '1', '2', '2', '3', '4'],
@@ -423,7 +551,7 @@ class TestFinalJoins:
                 'change_end_date': ['2020-02-09', '2020-02-14', '2020-02-19', '2020-02-24', '2020-02-29', None],
             }
         )
-        change_dates_df['date'] = pd.to_datetime(change_dates_df['date'])
+        change_dates_df['change_date'] = pd.to_datetime(change_dates_df['change_date'])
         change_dates_df['change_end_date'] = pd.to_datetime(change_dates_df['change_end_date'])
 
         return change_dates_df
@@ -516,7 +644,7 @@ class TestFinalJoins:
         #: Set up change dates data
         county_mock.change_dates_df = pd.DataFrame(
             data={
-                'date': ['2020-02-01', '2020-02-05', '2020-02-20'],
+                'change_date': ['2020-02-01', '2020-02-05', '2020-02-20'],
                 'county_name': ['co', 'co', 'co'],
                 'county_version': ['n/a', 'uts_co_S1', 'uts_co_S2'],
                 'district_number': ['1', '2', '3'],
@@ -524,7 +652,7 @@ class TestFinalJoins:
                 'change_end_date': ['2020-02-04', '2020-02-19', None],
             }
         )
-        county_mock.change_dates_df['date'] = pd.to_datetime(county_mock.change_dates_df['date'])
+        county_mock.change_dates_df['change_date'] = pd.to_datetime(county_mock.change_dates_df['change_date'])
         county_mock.change_dates_df['change_end_date'] = pd.to_datetime(county_mock.change_dates_df['change_end_date'])
 
         models.County.join_shapes_and_districts(county_mock)
@@ -598,6 +726,8 @@ class TestDistricts:
 
         versions = models.District._get_unique_district_versions(district_mock, unique_dates, start_date, end_date)
 
+        assert versions == [np.datetime64('2020-01-01'), np.datetime64('2021-01-01'), np.datetime64('2022-01-01')]
+
     def test_get_unique_district_versions_assigns_to_all_with_later_ending_date(self, unique_dates, mocker):
         district_mock = mocker.Mock()
         start_date = np.datetime64('2020-01-01')
@@ -620,6 +750,20 @@ class TestDistricts:
         district_mock = mocker.Mock()
         start_date = np.datetime64('2021-01-01')
         end_date = np.datetime64('2024-01-01')
+
+        versions = models.District._get_unique_district_versions(district_mock, unique_dates, start_date, end_date)
+
+        assert versions == [np.datetime64('2021-01-01'), np.datetime64('2022-01-01')]
+
+    @pytest.mark.skip(
+        reason='May not be needed; trying to make it so extinct counties have a solid end date instead of NaTs'
+    )
+    def test_get_unique_district_versions_does_not_assign_with_extinct_no_ending_date(self, mocker):
+
+        unique_dates = [np.datetime64('1860-01-01'), np.datetime64('1920-01-01'), np.datetime64('2020-01-01')]
+        district_mock = mocker.Mock()
+        start_date = np.datetime64('1850-01-01')
+        end_date = np.datetime64('nat')
 
         versions = models.District._get_unique_district_versions(district_mock, unique_dates, start_date, end_date)
 
