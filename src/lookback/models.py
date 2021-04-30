@@ -550,6 +550,7 @@ class District:
     def __init__(self, label, joined_df):
         self.label = label
         self.district_records: pd.DataFrame = joined_df[joined_df['DST_NUMBER'] == self.label].copy()
+        self.unique_change_dates = list(joined_df['CHANGE_DATE'].unique())
         self.row_key_and_versions = None
         self.versions_df: pd.DataFrame
         self.versions_full_info_df: pd.DataFrame
@@ -567,9 +568,9 @@ class District:
             for shp_key, dst_key in zip(self.district_records['SHP_KEY'], self.district_records['DST_KEY'])
         ]
 
-        unique_change_dates = list(self.district_records['CHANGE_DATE'].unique())
+        # unique_change_dates = list(self.district_records['CHANGE_DATE'].unique())
         self.row_key_and_versions = {
-            row_key: self._get_unique_district_versions(unique_change_dates, start_date, end_date)
+            row_key: self._get_unique_district_versions(self.unique_change_dates, start_date, end_date)
             for row_key, start_date, end_date in zip(
                 self.district_records['UNIQUE_ROW_KEY'],
                 self.district_records['CHANGE_DATE'],
@@ -600,6 +601,10 @@ class District:
             validate='m:1'
         )
 
+    #: TODO: Still doesn't get scenarios when a county leaves a district and that is the last change for that district.
+    #: Maybe pass in the whole state's list of change dates and then remove duplicates? Or a custom collapse that
+    #: removes all but the first/last identical rows? Or maybe the dissolve takes care of that and we don't need to make
+    #: that interim step so clean?
     def _get_unique_district_versions(self, unique_dates, start_date, end_date):
         """Get a list of versions this record is part of based on start and end date.
 

@@ -240,7 +240,7 @@ class TestAddingExtraFields:
         assert county_mock.joined_df.loc[0, test_columns].values.tolist() == ['1_2020-01-01']
         assert county_mock.joined_df.loc[1, test_columns].values.tolist() == ['1S_2030-01-01']
 
-    def test_normal_county_mid_cycle_district_changes(self, mocker):
+    def test_end_date_normal_county_mid_cycle_district_changes(self, mocker):
         county_mock = mocker.Mock()
         county_mock.joined_df = pd.DataFrame(
             data={
@@ -261,7 +261,7 @@ class TestAddingExtraFields:
         assert county_mock.joined_df.loc[0, test_columns].values.tolist() == [np.datetime64('2029-12-31')]
         assert county_mock.joined_df.loc[1, test_columns].values.tolist() == [np.datetime64('2039-12-31')]
 
-    def test_normal_county_mid_cycle_shape_changes(self, mocker):
+    def test_end_date_normal_county_mid_cycle_shape_changes(self, mocker):
         county_mock = mocker.Mock()
         county_mock.joined_df = pd.DataFrame(
             data={
@@ -282,7 +282,7 @@ class TestAddingExtraFields:
         assert county_mock.joined_df.loc[0, test_columns].values.tolist() == [np.datetime64('2029-12-31')]
         assert county_mock.joined_df.loc[1, test_columns].values.tolist() == [np.datetime64('2039-12-31')]
 
-    def test_normal_county_mid_cycle_both_change(self, mocker):
+    def test_end_date_normal_county_mid_cycle_both_change(self, mocker):
         county_mock = mocker.Mock()
         county_mock.joined_df = pd.DataFrame(
             data={
@@ -303,7 +303,7 @@ class TestAddingExtraFields:
         assert county_mock.joined_df.loc[0, test_columns].values.tolist() == [np.datetime64('2029-12-31')]
         assert county_mock.joined_df.loc[1, test_columns].values.tolist() == [np.datetime64('2039-12-31')]
 
-    def test_normal_county_end_district_end_notatime(self, mocker):
+    def test_end_date_normal_county_end_district_end_notatime(self, mocker):
         county_mock = mocker.Mock()
         county_mock.joined_df = pd.DataFrame(
             data={
@@ -324,7 +324,7 @@ class TestAddingExtraFields:
         assert county_mock.joined_df.loc[0, test_columns].values.tolist() == [np.datetime64('2029-12-31')]
         assert pd.isnull(county_mock.joined_df.loc[1, test_columns].values.tolist()[0])
 
-    def test_extinct_county_end_both_same_date(self, mocker):
+    def test_end_date_extinct_county_end_both_same_date(self, mocker):
         county_mock = mocker.Mock()
         county_mock.joined_df = pd.DataFrame(
             data={
@@ -685,6 +685,7 @@ class TestDistricts:
             data={
                 'COUNTY_KEY': ['foo', 'foo', 'foo', 'bar', 'bar', 'bar'],
                 'DST_NUMBER': ['1', '1', '2', '1', '2', '3'],
+                'CHANGE_DATE': ['date1', 'date2', 'date3', 'date4', 'date5', 'date6'],
             }
         )
 
@@ -696,78 +697,7 @@ class TestDistricts:
 
         assert district_mock.district_records['DST_NUMBER'].unique().tolist() == ['1']
         assert district_mock.district_records['COUNTY_KEY'].unique().tolist() == ['foo', 'bar']
-
-    @pytest.fixture
-    def unique_dates(self):
-        return [np.datetime64('2020-01-01'), np.datetime64('2021-01-01'), np.datetime64('2022-01-01')]
-
-    def test_get_unique_district_versions_assigns_to_one(self, unique_dates, mocker):
-        district_mock = mocker.Mock()
-        start_date = np.datetime64('2020-01-01')
-        end_date = np.datetime64('2020-12-31')
-
-        versions = models.District._get_unique_district_versions(district_mock, unique_dates, start_date, end_date)
-
-        assert versions == [np.datetime64('2020-01-01')]
-
-    def test_get_unique_district_versions_assigns_to_two(self, unique_dates, mocker):
-        district_mock = mocker.Mock()
-        start_date = np.datetime64('2020-01-01')
-        end_date = np.datetime64('2021-12-31')
-
-        versions = models.District._get_unique_district_versions(district_mock, unique_dates, start_date, end_date)
-
-        assert versions == [np.datetime64('2020-01-01'), np.datetime64('2021-01-01')]
-
-    def test_get_unique_district_versions_assigns_to_all_with_no_ending_date(self, unique_dates, mocker):
-        district_mock = mocker.Mock()
-        start_date = np.datetime64('2020-01-01')
-        end_date = np.datetime64('nat')
-
-        versions = models.District._get_unique_district_versions(district_mock, unique_dates, start_date, end_date)
-
-        assert versions == [np.datetime64('2020-01-01'), np.datetime64('2021-01-01'), np.datetime64('2022-01-01')]
-
-    def test_get_unique_district_versions_assigns_to_all_with_later_ending_date(self, unique_dates, mocker):
-        district_mock = mocker.Mock()
-        start_date = np.datetime64('2020-01-01')
-        end_date = np.datetime64('2024-01-01')
-
-        versions = models.District._get_unique_district_versions(district_mock, unique_dates, start_date, end_date)
-
-        assert versions == [np.datetime64('2020-01-01'), np.datetime64('2021-01-01'), np.datetime64('2022-01-01')]
-
-    def test_get_unique_district_versions_assigns_to_last_two_with_no_ending_date(self, unique_dates, mocker):
-        district_mock = mocker.Mock()
-        start_date = np.datetime64('2021-01-01')
-        end_date = np.datetime64('nat')
-
-        versions = models.District._get_unique_district_versions(district_mock, unique_dates, start_date, end_date)
-
-        assert versions == [np.datetime64('2021-01-01'), np.datetime64('2022-01-01')]
-
-    def test_get_unique_district_versions_assigns_to_last_two_with_later_ending_date(self, unique_dates, mocker):
-        district_mock = mocker.Mock()
-        start_date = np.datetime64('2021-01-01')
-        end_date = np.datetime64('2024-01-01')
-
-        versions = models.District._get_unique_district_versions(district_mock, unique_dates, start_date, end_date)
-
-        assert versions == [np.datetime64('2021-01-01'), np.datetime64('2022-01-01')]
-
-    @pytest.mark.skip(
-        reason='May not be needed; trying to make it so extinct counties have a solid end date instead of NaTs'
-    )
-    def test_get_unique_district_versions_does_not_assign_with_extinct_no_ending_date(self, mocker):
-
-        unique_dates = [np.datetime64('1860-01-01'), np.datetime64('1920-01-01'), np.datetime64('2020-01-01')]
-        district_mock = mocker.Mock()
-        start_date = np.datetime64('1850-01-01')
-        end_date = np.datetime64('nat')
-
-        versions = models.District._get_unique_district_versions(district_mock, unique_dates, start_date, end_date)
-
-        assert versions == [np.datetime64('2021-01-01'), np.datetime64('2022-01-01')]
+        assert district_mock.district_records['CHANGE_DATE'].unique().tolist() == ['date1', 'date2', 'date4']
 
     def test_build_versions_dataframes(self, mocker):
         district_mock = mocker.Mock()
@@ -839,6 +769,87 @@ class TestDistricts:
             '1_2020-01-01', '1_2020-01-01', '1_2021-01-01'
         ]
         assert district_mock.versions_full_info_df['geometry'].tolist() == ['geometry1', 'geometry2', 'geometry1']
+
+    def test_removes_county_that_changes_after_last_district_change_date(self, mocker):
+        test_state_df = pd.DataFrame(
+            data={
+                'CHANGE_DATE': ['2020-01-01', '2020-01-01', '2030-01-01'],
+                'CHANGE_END_DATE': ['2039-12-31', '2029-12-31', '2039-12-31'],
+                'DST_NUMBER': ['1', '1', '42'],
+                'SHP_KEY': ['shape1', 'shape2', 'shape2'],
+                'DST_KEY': ['dst1', 'dst1', 'dst42'],
+            }
+        )
+        test_state_df['CHANGE_DATE'] = pd.to_datetime(test_state_df['CHANGE_DATE'])
+        test_state_df['CHANGE_END_DATE'] = pd.to_datetime(test_state_df['CHANGE_END_DATE'])
+
+        test_district = models.District('1', test_state_df)
+        test_district.find_records_versions()
+        assert test_district.row_key_and_versions == {
+            'shape1__dst1': [np.datetime64('2020-01-01'), np.datetime64('2030-01-01')],
+            'shape2__dst1': [np.datetime64('2020-01-01')],
+        }
+
+
+class test_get_unique_district_versions():
+
+    @pytest.fixture
+    def unique_dates(self):
+        return [np.datetime64('2020-01-01'), np.datetime64('2021-01-01'), np.datetime64('2022-01-01')]
+
+    def test_get_unique_district_versions_assigns_to_one(self, unique_dates, mocker):
+        district_mock = mocker.Mock()
+        start_date = np.datetime64('2020-01-01')
+        end_date = np.datetime64('2020-12-31')
+
+        versions = models.District._get_unique_district_versions(district_mock, unique_dates, start_date, end_date)
+
+        assert versions == [np.datetime64('2020-01-01')]
+
+    def test_get_unique_district_versions_assigns_to_two(self, unique_dates, mocker):
+        district_mock = mocker.Mock()
+        start_date = np.datetime64('2020-01-01')
+        end_date = np.datetime64('2021-12-31')
+
+        versions = models.District._get_unique_district_versions(district_mock, unique_dates, start_date, end_date)
+
+        assert versions == [np.datetime64('2020-01-01'), np.datetime64('2021-01-01')]
+
+    def test_get_unique_district_versions_assigns_to_all_with_no_ending_date(self, unique_dates, mocker):
+        district_mock = mocker.Mock()
+        start_date = np.datetime64('2020-01-01')
+        end_date = np.datetime64('nat')
+
+        versions = models.District._get_unique_district_versions(district_mock, unique_dates, start_date, end_date)
+
+        assert versions == [np.datetime64('2020-01-01'), np.datetime64('2021-01-01'), np.datetime64('2022-01-01')]
+
+    def test_get_unique_district_versions_assigns_to_all_with_later_ending_date(self, unique_dates, mocker):
+        district_mock = mocker.Mock()
+        start_date = np.datetime64('2020-01-01')
+        end_date = np.datetime64('2024-01-01')
+
+        versions = models.District._get_unique_district_versions(district_mock, unique_dates, start_date, end_date)
+
+        assert versions == [np.datetime64('2020-01-01'), np.datetime64('2021-01-01'), np.datetime64('2022-01-01')]
+
+    def test_get_unique_district_versions_assigns_to_last_two_with_no_ending_date(self, unique_dates, mocker):
+        district_mock = mocker.Mock()
+        start_date = np.datetime64('2021-01-01')
+        end_date = np.datetime64('nat')
+
+        versions = models.District._get_unique_district_versions(district_mock, unique_dates, start_date, end_date)
+
+        assert versions == [np.datetime64('2021-01-01'), np.datetime64('2022-01-01')]
+
+    def test_get_unique_district_versions_assigns_to_last_two_with_later_ending_date(self, unique_dates, mocker):
+        district_mock = mocker.Mock()
+        start_date = np.datetime64('2021-01-01')
+        end_date = np.datetime64('2024-01-01')
+
+        versions = models.District._get_unique_district_versions(district_mock, unique_dates, start_date, end_date)
+
+        assert versions == [np.datetime64('2021-01-01'), np.datetime64('2022-01-01')]
 
     # def test_assign_versions_comprehension(self, mocker, joined_df):
     #     district_mock = mocker.Mock()
