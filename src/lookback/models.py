@@ -568,7 +568,6 @@ class District:
             for shp_key, dst_key in zip(self.district_records['SHP_KEY'], self.district_records['DST_KEY'])
         ]
 
-        # unique_change_dates = list(self.district_records['CHANGE_DATE'].unique())
         self.row_key_and_versions = {
             row_key: self._get_unique_district_versions(self.unique_change_dates, start_date, end_date)
             for row_key, start_date, end_date in zip(
@@ -579,15 +578,15 @@ class District:
         }
 
     def build_versions_dataframe(self):
-        """Each record with its district version identified by 'district-number_date': '1_1896-01-06'
+        """Each record with its district version identified by 'district-number_date' (ie, '1_1896-01-06')
         """
         versions = []
         for row_key, version_list in self.row_key_and_versions.items():
             for date in version_list:
-                #: [(row_key1, d_key1), (row_key2, d_key1), ...]
-                versions.append((row_key, f'{self.label}_{pd.to_datetime(date).strftime("%Y-%m-%d")}'))
+                #: creates [(row_key1, d_key1, date1), (row_key2, d_key1, date1), ...]
+                versions.append((row_key, f'{self.label}_{pd.to_datetime(date).strftime("%Y-%m-%d")}', date))
 
-        self.versions_df = pd.DataFrame(versions, columns=['UNIQUE_ROW_KEY', 'DST_VERSION_KEY'])
+        self.versions_df = pd.DataFrame(versions, columns=['UNIQUE_ROW_KEY', 'DST_VERSION_KEY', 'DST_VERSION_DATE'])
 
     def join_version_information(self):
         """For each record and district version, join all other info back in via UNIQUE_ROW_KEY
@@ -601,19 +600,15 @@ class District:
             validate='m:1'
         )
 
-    #: TODO: Still doesn't get scenarios when a county leaves a district and that is the last change for that district.
-    #: Maybe pass in the whole state's list of change dates and then remove duplicates? Or a custom collapse that
-    #: removes all but the first/last identical rows? Or maybe the dissolve takes care of that and we don't need to make
-    #: that interim step so clean?
     def _get_unique_district_versions(self, unique_dates, start_date, end_date):
         """Get a list of versions this record is part of based on start and end date.
 
         Operates on the start and end date of a single record from a combined district and shape table. Identifies which
-        change dates the record belongs to by checking its temporal bounds against each change date in the District's
-        set of change dates.
+        change dates the record belongs to by checking its temporal bounds against each change date in the States's
+        full set of change dates.
 
         Args:
-            unique_dates (list[np.datetime64?]): The change dates associated with this district.
+            unique_dates (list[np.datetime64?]): All the change dates for the entire state.
             start_date (np.datetime64?): The record's starting date.
             end_date (np.datetime64?): The record's ending date. Can be the day before a change date in unique_dates
             or NaT if it's the most current version.
