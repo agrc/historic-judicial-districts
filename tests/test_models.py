@@ -725,7 +725,7 @@ class TestDistricts:
     def test_join_version_information_record_occurs_twice(self, mocker):
 
         district_mock = mocker.Mock()
-        district_mock.versions_df = pd.DataFrame(
+        district_mock.deduped_versions_df = pd.DataFrame(
             data={
                 'UNIQUE_ROW_KEY': ['s1_d1', 's2_d1', 's1_d1'],
                 'DST_KEY': ['1_2020-01-01', '1_2020-01-01', '1_2021-01-01']
@@ -749,7 +749,7 @@ class TestDistricts:
     def test_join_version_information_extra_geometries_ignored(self, mocker):
 
         district_mock = mocker.Mock()
-        district_mock.versions_df = pd.DataFrame(
+        district_mock.deduped_versions_df = pd.DataFrame(
             data={
                 'UNIQUE_ROW_KEY': ['s1_d1', 's2_d1', 's1_d1'],
                 'DST_KEY': ['1_2020-01-01', '1_2020-01-01', '1_2021-01-01']
@@ -789,6 +789,197 @@ class TestDistricts:
             'shape1__dst1': [np.datetime64('2020-01-01'), np.datetime64('2030-01-01')],
             'shape2__dst1': [np.datetime64('2020-01-01')],
         }
+
+    def test_remove_duplicate_version_rows_one_changes_at_end(self, mocker):
+        versions_df = pd.DataFrame(
+            data={
+                'UNIQUE_ROW_KEY': [
+                    'co1_s1__d1',
+                    'co1_s1__d1',
+                    'co1_s1__d1',
+                    'co2_s1__d1',
+                    'co2_s1__d2',
+                    'co2_s1__d2',
+                ],
+                'DST_VERSION_KEY': [
+                    'foo_2020-01-01',
+                    'foo_2030-01-01',
+                    'foo_2040-01-01',
+                    'foo_2020-01-01',
+                    'foo_2030-01-01',
+                    'foo_2040-01-01',
+                ],
+                'DST_VERSION_DATE': [
+                    '2020-01-01',
+                    '2030-01-01',
+                    '2040-01-01',
+                    '2020-01-01',
+                    '2030-01-01',
+                    '2040-01-01',
+                ],
+            }
+        )
+        versions_df['DST_VERSION_DATE'] = pd.to_datetime(versions_df['DST_VERSION_DATE'])
+
+        district_mock = mocker.Mock()
+        district_mock.versions_df = versions_df
+
+        models.District.remove_duplicate_version_rows(district_mock)
+
+        assert district_mock.deduped_versions_df['UNIQUE_ROW_KEY'].tolist() == [
+            'co1_s1__d1',
+            'co1_s1__d1',
+            'co2_s1__d1',
+            'co2_s1__d2',
+        ]
+        assert district_mock.deduped_versions_df['DST_VERSION_KEY'].tolist() == [
+            'foo_2020-01-01',
+            'foo_2030-01-01',
+            'foo_2020-01-01',
+            'foo_2030-01-01',
+        ]
+        assert district_mock.deduped_versions_df['DST_VERSION_DATE'].tolist() == [
+            np.datetime64('2020-01-01'),
+            np.datetime64('2030-01-01'),
+            np.datetime64('2020-01-01'),
+            np.datetime64('2030-01-01'),
+        ]
+
+    def test_remove_duplicate_version_rows_new_one_after_multiple_change_dates(self, mocker):
+        versions_df = pd.DataFrame(
+            data={
+                'UNIQUE_ROW_KEY': [
+                    'co1_s1__d1',
+                    'co1_s1__d1',
+                    'co1_s1__d1',
+                    'co2_s1__d1',
+                ],
+                'DST_VERSION_KEY': [
+                    'foo_2020-01-01',
+                    'foo_2030-01-01',
+                    'foo_2040-01-01',
+                    'foo_2040-01-01',
+                ],
+                'DST_VERSION_DATE': [
+                    '2020-01-01',
+                    '2030-01-01',
+                    '2040-01-01',
+                    '2040-01-01',
+                ],
+            }
+        )
+        versions_df['DST_VERSION_DATE'] = pd.to_datetime(versions_df['DST_VERSION_DATE'])
+
+        district_mock = mocker.Mock()
+        district_mock.versions_df = versions_df
+
+        models.District.remove_duplicate_version_rows(district_mock)
+
+        assert district_mock.deduped_versions_df['UNIQUE_ROW_KEY'].tolist() == [
+            'co1_s1__d1',
+            'co1_s1__d1',
+            'co2_s1__d1',
+        ]
+        assert district_mock.deduped_versions_df['DST_VERSION_KEY'].tolist() == [
+            'foo_2020-01-01',
+            'foo_2040-01-01',
+            'foo_2040-01-01',
+        ]
+        assert district_mock.deduped_versions_df['DST_VERSION_DATE'].tolist() == [
+            np.datetime64('2020-01-01'),
+            np.datetime64('2040-01-01'),
+            np.datetime64('2040-01-01'),
+        ]
+
+        #: TODO: more test cases for deduplication, then implement dedup according to method in notebook
+    def test_remove_duplicate_version_rows_many_of_same(self, mocker):
+        versions_df = pd.DataFrame(
+            data={
+                'UNIQUE_ROW_KEY': [
+                    'co1_s1__d1',
+                    'co1_s1__d1',
+                    'co1_s1__d1',
+                ],
+                'DST_VERSION_KEY': [
+                    'foo_2020-01-01',
+                    'foo_2030-01-01',
+                    'foo_2040-01-01',
+                ],
+                'DST_VERSION_DATE': [
+                    np.datetime64('2020-01-01'),
+                    np.datetime64('2030-01-01'),
+                    np.datetime64('2040-01-01'),
+                ],
+            }
+        )
+        versions_df['DST_VERSION_DATE'] = pd.to_datetime(versions_df['DST_VERSION_DATE'])
+
+        district_mock = mocker.Mock()
+        district_mock.versions_df = versions_df
+
+        models.District.remove_duplicate_version_rows(district_mock)
+
+        assert district_mock.deduped_versions_df['UNIQUE_ROW_KEY'].tolist() == [
+            'co1_s1__d1',
+        ]
+        assert district_mock.deduped_versions_df['DST_VERSION_KEY'].tolist() == [
+            'foo_2020-01-01',
+        ]
+        assert district_mock.deduped_versions_df['DST_VERSION_DATE'].tolist() == [
+            np.datetime64('2020-01-01'),
+        ]
+
+    def test_remove_duplicate_version_rows_first_one_ends(self, mocker):
+        versions_df = pd.DataFrame(
+            data={
+                'UNIQUE_ROW_KEY': [
+                    'co1_s1__d1',
+                    'co1_s1__d1',
+                    'co2_s1__d1',
+                    'co2_s1__d2',
+                    'co2_s1__d2',
+                ],
+                'DST_VERSION_KEY': [
+                    'foo_2020-01-01',
+                    'foo_2030-01-01',
+                    'foo_2020-01-01',
+                    'foo_2030-01-01',
+                    'foo_2040-01-01',
+                ],
+                'DST_VERSION_DATE': [
+                    '2020-01-01',
+                    '2030-01-01',
+                    '2020-01-01',
+                    '2030-01-01',
+                    '2040-01-01',
+                ],
+            }
+        )
+        versions_df['DST_VERSION_DATE'] = pd.to_datetime(versions_df['DST_VERSION_DATE'])
+
+        district_mock = mocker.Mock()
+        district_mock.versions_df = versions_df
+
+        models.District.remove_duplicate_version_rows(district_mock)
+
+        assert district_mock.deduped_versions_df['UNIQUE_ROW_KEY'].tolist() == [
+            'co1_s1__d1',
+            'co1_s1__d1',
+            'co2_s1__d1',
+            'co2_s1__d2',
+        ]
+        assert district_mock.deduped_versions_df['DST_VERSION_KEY'].tolist() == [
+            'foo_2020-01-01',
+            'foo_2030-01-01',
+            'foo_2020-01-01',
+            'foo_2030-01-01',
+        ]
+        assert district_mock.deduped_versions_df['DST_VERSION_DATE'].tolist() == [
+            np.datetime64('2020-01-01'),
+            np.datetime64('2030-01-01'),
+            np.datetime64('2020-01-01'),
+            np.datetime64('2030-01-01'),
+        ]
 
 
 class test_get_unique_district_versions():

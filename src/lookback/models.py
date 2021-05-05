@@ -310,6 +310,7 @@ class State:
         for district in self.districts:
             district.find_records_versions()
             district.build_versions_dataframe()
+            district.remove_duplicate_version_rows()
             district.join_version_information()
 
     def combine_district_dicts(self, out_path=None):
@@ -553,6 +554,7 @@ class District:
         self.unique_change_dates = list(joined_df['CHANGE_DATE'].unique())
         self.row_key_and_versions = None
         self.versions_df: pd.DataFrame
+        self.deduped_versions_df: pd.DataFrame
         self.versions_full_info_df: pd.DataFrame
 
     def find_records_versions(self):
@@ -588,11 +590,19 @@ class District:
 
         self.versions_df = pd.DataFrame(versions, columns=['UNIQUE_ROW_KEY', 'DST_VERSION_KEY', 'DST_VERSION_DATE'])
 
+    def remove_duplicate_version_rows(self):
+        """Filters rows based on the earliest unique dates for every UNIQUE_ROW_KEY using the dates from the entire
+        district.
+        """
+
+        dates = self.versions_df.groupby('UNIQUE_ROW_KEY')['DST_VERSION_DATE'].min().unique()
+        self.deduped_versions_df = self.versions_df[self.versions_df['DST_VERSION_DATE'].isin(dates)]
+
     def join_version_information(self):
         """For each record and district version, join all other info back in via UNIQUE_ROW_KEY
         """
         self.versions_full_info_df = pd.merge(
-            self.versions_df,
+            self.deduped_versions_df,
             self.district_records,
             how='left',
             left_on='UNIQUE_ROW_KEY',
