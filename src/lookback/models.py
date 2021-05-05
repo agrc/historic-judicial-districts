@@ -244,22 +244,22 @@ class State:
 
         self.output_df.rename(columns=df_renamer, inplace=True)
 
-    def output_to_featureclass(self, out_path, template_shp):
+    def output_to_featureclass(self, out_path, epsg=26912):
         """Write final data in output_df out to specified feature class.
 
         Manually sets the output fields, which should match the dataframe columns as renamed previously.
 
         Args:
             out_path (str): Path to a feature class (can not exist already)
-            template_shp (str): Path to the historical boundaries shapefile
-                for projection info.
+            epsg (int, optional): EPSG code for output project. Defualts to 26912 (UTM 12N NAD83)
         """
 
         print(f'Creating output {out_path}...')
         out_gdb = str(Path(out_path).parent)
         out_name = str(Path(out_path).name)
-        template_prj = str(Path(template_shp).with_suffix('.prj'))
-        arcpy.management.CreateFeatureclass(out_gdb, out_name, 'POLYGON', spatial_reference=template_prj)
+        # template_prj = str(Path(template_shp).with_suffix('.prj'))
+        spatial_reference = arcpy.SpatialReference(epsg)
+        arcpy.management.CreateFeatureclass(out_gdb, out_name, 'POLYGON', spatial_reference=spatial_reference)
 
         new_fields = [
             ['CHANGE_DATE', 'DATE'],  #: change_df date
@@ -313,7 +313,7 @@ class State:
             district.remove_duplicate_version_rows()
             district.join_version_information()
 
-    def combine_district_dicts(self, out_path=None):
+    def combine_district_dicts(self, out_path=None, epsg=26912):
         """Merge all the district's dataframes into a single dataframe, pickle if desired
 
         Args:
@@ -324,24 +324,62 @@ class State:
         for district in self.districts:
             self.district_versions_df = self.district_versions_df.append(district.versions_full_info_df)
         if out_path:
-            self.district_versions_df.to_pickle(out_path)
+            # self.district_versions_df.to_pickle(out_path)
 
-    def dissolve_districts(self, out_path, template_shp):
+            print(f'Writing district version parts out to {out_path}...')
+            out_gdb = str(Path(out_path).parent)
+            out_name = str(Path(out_path).name)
+            spatial_reference = arcpy.SpatialReference(epsg)
+            arcpy.management.CreateFeatureclass(out_gdb, out_name, 'POLYGON', spatial_reference=spatial_reference)
+
+            new_fields = [
+                ['DST_VERSION_KEY', 'TEXT'],
+                ['UNIQUE_ROW_KEY', 'TEXT'],
+                ['CHANGE_DATE', 'DATE'],  #: change_df date
+                ['CHANGE_END_DATE', 'DATE'],  #: change_df change_end_date
+                ['COUNTY_KEY', 'TEXT'],  #: change_df county_name
+                ['SHP_NAME', 'TEXT'],  #: shape_df NAME
+                ['SHP_ID', 'TEXT'],  #: shape_df ID
+                ['SHP_FIPS', 'TEXT'],  #: shape_df FIPS
+                ['SHP_VERSION', 'TEXT'],  #: shape_df VERSION
+                ['DST_NAME', 'TEXT'],  #: district_df CountyName
+                ['DST_NUMBER', 'TEXT'],  #: district_df district
+                ['SHP_START_DATE', 'DATE'],  #: shape_df START_DATE
+                ['SHP_END_DATE', 'DATE'],  #: shape_df END_DATE
+                ['DST_START_DATE', 'DATE'],  #: district_df date
+                ['DST_END_DATE', 'DATE'],  #: district_df end_date
+                ['SHP_CHANGE', 'TEXT'],  #: shape_df CHANGE
+                ['SHP_CITATION', 'TEXT'],  #: shape_df CITATION
+                ['SHP_AREA_SQMI', 'LONG'],  #: shape_df AREA_SQMI
+                ['SHP_KEY', 'TEXT'],  #: shape_df shape_key
+                ['DST_KEY', 'TEXT'],  #: district_df district_key
+            ]
+
+            arcpy.management.AddFields(out_path, new_fields)
+
+            #: Rename the data frame columns to match the output fields
+            cursor_fields = [field_name[0] for field_name in new_fields]  #: Only look at the renamed columns
+            cursor_fields.append('SHAPE@')  #: Make sure we've got geometry
+            with arcpy.da.InsertCursor(out_path, list(cursor_fields)) as insert_cursor:
+                for row in self.district_versions_df[cursor_fields].values.tolist():
+                    insert_cursor.insertRow(nulls_to_nones(row))
+
+    def dissolve_districts(self, out_path, epsg=26912):
         """Dissolve the districts based on DST_VERSION_KEY to out_path.
 
         Args:
             out_path (str): Feature class to save dissolved districts
-            template_shp (str): Shapefile to use as template for coord system
+            epsg (int, optional): EPSG code for output projection. Defaults to 26912 (UTM 12N NAD83)
         """
 
         print(f'Dissolving districts to {out_path}...')
 
-        template_prj = str(Path(template_shp).with_suffix('.prj'))
-        arcpy.management.CreateFeatureclass('memory', 'districts_fc', 'POLYGON', spatial_reference=template_prj)
+        spatial_reference = arcpy.SpatialReference(epsg)
+        arcpy.management.CreateFeatureclass('memory', 'districts_fc', 'POLYGON', spatial_reference=spatial_reference)
 
         new_fields = [
             ['DST_VERSION_KEY', 'TEXT'],  #: key for the dissolve
-            ['UNIQUE_ROW_KEY', 'TEXT'],  #: ???
+            # ['UNIQUE_ROW_KEY', 'TEXT'],  #: ???
         ]
 
         arcpy.management.AddFields(r'memory\districts_fc', new_fields)
