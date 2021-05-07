@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import List
 
 import arcpy
+import numpy as np
 import pandas as pd
 
 
@@ -310,8 +311,8 @@ class State:
         for district in self.districts:
             district.find_records_versions()
             district.build_versions_dataframe()
-            district.remove_duplicate_version_rows()
             district.join_version_information()
+            district.remove_duplicate_version_rows()
 
     def combine_district_dicts(self, out_path=None, epsg=26912):
         """Merge all the district's dataframes into a single dataframe, pickle if desired
@@ -323,6 +324,9 @@ class State:
         self.district_versions_df = pd.DataFrame()
         for district in self.districts:
             self.district_versions_df = self.district_versions_df.append(district.versions_full_info_df)
+        # self.district_versions_df.to_pickle(
+        #     r'C:\gis\Projects\HistoricCounties\Data\JudicialDistricts\district_versions_with_dupes.pkl'
+        # )
         if out_path:
             # self.district_versions_df.to_pickle(out_path)
 
@@ -335,6 +339,7 @@ class State:
             new_fields = [
                 ['DST_VERSION_KEY', 'TEXT'],
                 ['UNIQUE_ROW_KEY', 'TEXT'],
+                ['DST_VERSION_DATE', 'DATE'],
                 ['CHANGE_DATE', 'DATE'],  #: change_df date
                 ['CHANGE_END_DATE', 'DATE'],  #: change_df change_end_date
                 ['COUNTY_KEY', 'TEXT'],  #: change_df county_name
@@ -379,7 +384,8 @@ class State:
 
         new_fields = [
             ['DST_VERSION_KEY', 'TEXT'],  #: key for the dissolve
-            # ['UNIQUE_ROW_KEY', 'TEXT'],  #: ???
+            ['DST_VERSION_DATE', 'DATE'],
+            ['DST_NUMBER', 'TEXT'],
         ]
 
         arcpy.management.AddFields(r'memory\districts_fc', new_fields)
@@ -391,7 +397,9 @@ class State:
             for row in self.district_versions_df[cursor_fields].values.tolist():
                 insert_cursor.insertRow(nulls_to_nones(row))
 
-        arcpy.management.Dissolve(r'memory\districts_fc', out_path, 'DST_VERSION_KEY')
+        arcpy.management.Dissolve(
+            r'memory\districts_fc', out_path, ['DST_VERSION_KEY', 'DST_VERSION_DATE', 'DST_NUMBER']
+        )
 
 
 class County:
@@ -633,14 +641,37 @@ class District:
         district.
         """
 
-        dates = self.versions_df.groupby('UNIQUE_ROW_KEY')['DST_VERSION_DATE'].min().unique()
-        self.deduped_versions_df = self.versions_df[self.versions_df['DST_VERSION_DATE'].isin(dates)]
+        #: WIP
+        #: TODO: Again, this set of dates isn't catching any counties that leave the district after the last district
+        #: change date.
+        #: Also, is dropping district 3 at 1896 change date... why? Because it didn't change then... but it did- Davis
+        #: left, but it's next DST_END_DATE was NULL
+        #: To fix: get the list of unique dates of every county in the district... will this miss some dupes, though? We
+        #: just want the next date when it leaves the district... can we incorporate that into the logic that adds the
+        #: list of dates for each county?
+        #: first fix (as described) implemented below, working on tests
+
+        dates = list(self.versions_full_info_df.groupby('UNIQUE_ROW_KEY')['DST_VERSION_DATE'].min().unique())
+
+        #: Add dates for counties that leave the district
+        #: For each county in the district's versions_df, if that county's latest UNIQUE_ROW_KEY (by DST_VERSION_DATE)
+        #: has a DST_END_DATE that is after the DST_VERSION_DATE, add (that DST_END_DATE + 1) to dates.
+        for county in self.versions_full_info_df['COUNTY_KEY'].unique():
+            county_subset = self.versions_full_info_df[self.versions_full_info_df['COUNTY_KEY'] == county]
+            row = county_subset.loc[county_subset['DST_VERSION_DATE'].idxmax()]  #: Gets the index of the max value row
+            if row['DST_VERSION_DATE'] < row['DST_END_DATE']:
+                new_date = np.datetime64(row['DST_END_DATE'] + pd.Timedelta(days=1))
+                if new_date not in dates:
+                    dates.append(new_date)
+
+        self.deduped_versions_df = self.versions_full_info_df[
+            self.versions_full_info_df['DST_VERSION_DATE'].isin(dates)]
 
     def join_version_information(self):
         """For each record and district version, join all other info back in via UNIQUE_ROW_KEY
         """
         self.versions_full_info_df = pd.merge(
-            self.deduped_versions_df,
+            self.versions_df,
             self.district_records,
             how='left',
             left_on='UNIQUE_ROW_KEY',
