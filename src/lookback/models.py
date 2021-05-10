@@ -657,7 +657,11 @@ class District:
         #: For each county in the district's versions_df, if that county's latest UNIQUE_ROW_KEY (by DST_VERSION_DATE)
         #: has a DST_END_DATE that is after the DST_VERSION_DATE, add (that DST_END_DATE + 1) to dates.
         for county in self.versions_full_info_df['COUNTY_KEY'].unique():
-            county_subset = self.versions_full_info_df[self.versions_full_info_df['COUNTY_KEY'] == county]
+            county_subset = self.versions_full_info_df[(self.versions_full_info_df['COUNTY_KEY'] == county) &
+                                                       ~(self.versions_full_info_df['DST_VERSION_DATE'].isin(dates))]
+            #: This is still failing to catch the next version after a county leaves case.
+            if county_subset.empty:
+                continue
             row = county_subset.loc[county_subset['DST_VERSION_DATE'].idxmax()]  #: Gets the index of the max value row
             if row['DST_VERSION_DATE'] < row['DST_END_DATE']:
                 new_date = np.datetime64(row['DST_END_DATE'] + pd.Timedelta(days=1))
