@@ -817,24 +817,31 @@ class TestDistricts:
 
         models.District.remove_duplicate_version_rows(district_mock)
 
-        assert district_mock.deduped_versions_df['UNIQUE_ROW_KEY'].tolist() == [
-            'co1_s1__d1',
-            'co1_s1__d1',
-            'co2_s1__d1',
-            'co2_s1__d2',
-        ]
-        assert district_mock.deduped_versions_df['DST_VERSION_KEY'].tolist() == [
-            'foo_2020-01-01',
-            'foo_2030-01-01',
-            'foo_2020-01-01',
-            'foo_2030-01-01',
-        ]
-        assert district_mock.deduped_versions_df['DST_VERSION_DATE'].tolist() == [
-            np.datetime64('2020-01-01'),
-            np.datetime64('2030-01-01'),
-            np.datetime64('2020-01-01'),
-            np.datetime64('2030-01-01'),
-        ]
+        assert district_mock.deduped_versions_df.to_numpy().tolist() == [
+            ['co1', 'co1_s1__d1', 'foo_2020-01-01', np.datetime64('2020-01-01'), np.datetime64('2029-12-31')],
+            ['co1', 'co1_s1__d1', 'foo_2030-01-01', np.datetime64('2030-01-01'), np.datetime64('2039-12-31')],
+            ['co2', 'co2_s1__d1', 'foo_2020-01-01', np.datetime64('2020-01-01'), np.datetime64('2029-12-31')],
+            ['co2', 'co2_s1__d2', 'foo_2030-01-01', np.datetime64('2030-01-01'), np.datetime64('2039-12-31')]
+        ]  # yapf: disable
+
+        # assert district_mock.deduped_versions_df['UNIQUE_ROW_KEY'].tolist() == [
+        #     'co1_s1__d1',
+        #     'co1_s1__d1',
+        #     'co2_s1__d1',
+        #     'co2_s1__d2',
+        # ]
+        # assert district_mock.deduped_versions_df['DST_VERSION_KEY'].tolist() == [
+        #     'foo_2020-01-01',
+        #     'foo_2030-01-01',
+        #     'foo_2020-01-01',
+        #     'foo_2030-01-01',
+        # ]
+        # assert district_mock.deduped_versions_df['DST_VERSION_DATE'].tolist() == [
+        #     np.datetime64('2020-01-01'),
+        #     np.datetime64('2030-01-01'),
+        #     np.datetime64('2020-01-01'),
+        #     np.datetime64('2030-01-01'),
+        # ]
 
     def test_remove_duplicate_version_rows_new_one_after_multiple_change_dates(self, mocker):
         versions_full_info_df = pd.DataFrame(
@@ -861,21 +868,27 @@ class TestDistricts:
 
         models.District.remove_duplicate_version_rows(district_mock)
 
-        assert district_mock.deduped_versions_df['UNIQUE_ROW_KEY'].tolist() == [
-            'co1_s1__d1',
-            'co1_s1__d1',
-            'co2_s1__d1',
-        ]
-        assert district_mock.deduped_versions_df['DST_VERSION_KEY'].tolist() == [
-            'foo_2020-01-01',
-            'foo_2040-01-01',
-            'foo_2040-01-01',
-        ]
-        assert district_mock.deduped_versions_df['DST_VERSION_DATE'].tolist() == [
-            np.datetime64('2020-01-01'),
-            np.datetime64('2040-01-01'),
-            np.datetime64('2040-01-01'),
-        ]
+        assert district_mock.deduped_versions_df.to_numpy().tolist() == [
+            ['co1', 'co1_s1__d1', 'foo_2020-01-01', np.datetime64('2020-01-01'), np.datetime64('2029-12-31')],
+            ['co1', 'co1_s1__d1', 'foo_2040-01-01', np.datetime64('2040-01-01'), np.datetime64('2049-12-31')],
+            ['co2', 'co2_s1__d1', 'foo_2040-01-01', np.datetime64('2040-01-01'), np.datetime64('2049-12-31')],
+        ]  # yapf: disable
+
+        # assert district_mock.deduped_versions_df['UNIQUE_ROW_KEY'].tolist() == [
+        #     'co1_s1__d1',
+        #     'co1_s1__d1',
+        #     'co2_s1__d1',
+        # ]
+        # assert district_mock.deduped_versions_df['DST_VERSION_KEY'].tolist() == [
+        #     'foo_2020-01-01',
+        #     'foo_2040-01-01',
+        #     'foo_2040-01-01',
+        # ]
+        # assert district_mock.deduped_versions_df['DST_VERSION_DATE'].tolist() == [
+        #     np.datetime64('2020-01-01'),
+        #     np.datetime64('2040-01-01'),
+        #     np.datetime64('2040-01-01'),
+        # ]
 
     def test_remove_duplicate_version_rows_many_of_same(self, mocker):
         versions_full_info_df = pd.DataFrame(
@@ -901,15 +914,19 @@ class TestDistricts:
 
         models.District.remove_duplicate_version_rows(district_mock)
 
-        assert district_mock.deduped_versions_df['UNIQUE_ROW_KEY'].tolist() == [
-            'co1_s1__d1',
-        ]
-        assert district_mock.deduped_versions_df['DST_VERSION_KEY'].tolist() == [
-            'foo_2020-01-01',
-        ]
-        assert district_mock.deduped_versions_df['DST_VERSION_DATE'].tolist() == [
-            np.datetime64('2020-01-01'),
-        ]
+        assert district_mock.deduped_versions_df.to_numpy().tolist() == [
+            ['co1', 'co1_s1__d1', 'foo_2020-01-01', np.datetime64('2020-01-01'), np.datetime64('2029-12-31')],
+        ]  # yapf: disable
+
+        # assert district_mock.deduped_versions_df['UNIQUE_ROW_KEY'].tolist() == [
+        #     'co1_s1__d1',
+        # ]
+        # assert district_mock.deduped_versions_df['DST_VERSION_KEY'].tolist() == [
+        #     'foo_2020-01-01',
+        # ]
+        # assert district_mock.deduped_versions_df['DST_VERSION_DATE'].tolist() == [
+        #     np.datetime64('2020-01-01'),
+        # ]
 
     def test_remove_duplicate_version_rows_first_one_leaves_still_includes_next_version_after(self, mocker):
         versions_full_info_df = pd.DataFrame(
@@ -939,27 +956,35 @@ class TestDistricts:
 
         models.District.remove_duplicate_version_rows(district_mock)
 
-        assert district_mock.deduped_versions_df['UNIQUE_ROW_KEY'].tolist() == [
-            'co1_s1__d1',
-            'co1_s1__d1',
-            'co2_s1__d1',
-            'co2_s1__d2',
-            'co2_s1__d2',
-        ]
-        assert district_mock.deduped_versions_df['DST_VERSION_KEY'].tolist() == [
-            'foo_2020-01-01',
-            'foo_2030-01-01',
-            'foo_2020-01-01',
-            'foo_2030-01-01',
-            'foo_2040-01-01',
-        ]
-        assert district_mock.deduped_versions_df['DST_VERSION_DATE'].tolist() == [
-            np.datetime64('2020-01-01'),
-            np.datetime64('2030-01-01'),
-            np.datetime64('2020-01-01'),
-            np.datetime64('2030-01-01'),
-            np.datetime64('2040-01-01'),
-        ]
+        assert district_mock.deduped_versions_df.to_numpy().tolist() == [
+            ['co1', 'co1_s1__d1', 'foo_2020-01-01', np.datetime64('2020-01-01'), np.datetime64('2029-12-31')],
+            ['co1', 'co1_s1__d1', 'foo_2030-01-01', np.datetime64('2030-01-01'), np.datetime64('2039-12-31')],
+            ['co2', 'co2_s1__d1', 'foo_2020-01-01', np.datetime64('2020-01-01'), np.datetime64('2029-12-31')],
+            ['co2', 'co2_s1__d2', 'foo_2030-01-01', np.datetime64('2030-01-01'), np.datetime64('2039-12-31')],
+            ['co2', 'co2_s1__d2', 'foo_2040-01-01', np.datetime64('2040-01-01'), np.datetime64('2049-12-31')],
+        ]  # yapf: disable
+
+        # assert district_mock.deduped_versions_df['UNIQUE_ROW_KEY'].tolist() == [
+        #     'co1_s1__d1',
+        #     'co1_s1__d1',
+        #     'co2_s1__d1',
+        #     'co2_s1__d2',
+        #     'co2_s1__d2',
+        # ]
+        # assert district_mock.deduped_versions_df['DST_VERSION_KEY'].tolist() == [
+        #     'foo_2020-01-01',
+        #     'foo_2030-01-01',
+        #     'foo_2020-01-01',
+        #     'foo_2030-01-01',
+        #     'foo_2040-01-01',
+        # ]
+        # assert district_mock.deduped_versions_df['DST_VERSION_DATE'].tolist() == [
+        #     np.datetime64('2020-01-01'),
+        #     np.datetime64('2030-01-01'),
+        #     np.datetime64('2020-01-01'),
+        #     np.datetime64('2030-01-01'),
+        #     np.datetime64('2040-01-01'),
+        # ]
 
     def test_remove_duplicate_version_rows_first_one_leaves_then_comes_back_includes_next_after_leaving(self, mocker):
         #: 2020: co1, co2
@@ -990,27 +1015,35 @@ class TestDistricts:
 
         models.District.remove_duplicate_version_rows(district_mock)
 
-        assert district_mock.deduped_versions_df['UNIQUE_ROW_KEY'].tolist() == [
-            'co1_s1__d1',
-            'co1_s1__d3',
-            'co2_s1__d1',
-            'co2_s1__d1',
-            'co2_s1__d1',
-        ]
-        assert district_mock.deduped_versions_df['DST_VERSION_KEY'].tolist() == [
-            'foo_2020-01-01',
-            'foo_2040-01-01',
-            'foo_2020-01-01',
-            'foo_2030-01-01',
-            'foo_2040-01-01',
-        ]
-        assert district_mock.deduped_versions_df['DST_VERSION_DATE'].tolist() == [
-            np.datetime64('2020-01-01'),
-            np.datetime64('2040-01-01'),
-            np.datetime64('2020-01-01'),
-            np.datetime64('2030-01-01'),
-            np.datetime64('2040-01-01'),
-        ]
+        assert district_mock.deduped_versions_df.to_numpy().tolist() == [
+            ['co1', 'co1_s1__d1', 'foo_2020-01-01', np.datetime64('2020-01-01'), np.datetime64('2029-12-31')],
+            ['co1', 'co1_s1__d3', 'foo_2040-01-01', np.datetime64('2040-01-01'), np.datetime64('2049-12-31')],
+            ['co2', 'co2_s1__d1', 'foo_2020-01-01', np.datetime64('2020-01-01'), np.datetime64('2029-12-31')],
+            ['co2', 'co2_s1__d1', 'foo_2030-01-01', np.datetime64('2030-01-01'), np.datetime64('2039-12-31')],
+            ['co2', 'co2_s1__d1', 'foo_2040-01-01', np.datetime64('2040-01-01'), np.datetime64('2049-12-31')],
+        ]  # yapf: disable
+
+        # assert district_mock.deduped_versions_df['UNIQUE_ROW_KEY'].tolist() == [
+        #     'co1_s1__d1',
+        #     'co1_s1__d3',
+        #     'co2_s1__d1',
+        #     'co2_s1__d1',
+        #     'co2_s1__d1',
+        # ]
+        # assert district_mock.deduped_versions_df['DST_VERSION_KEY'].tolist() == [
+        #     'foo_2020-01-01',
+        #     'foo_2040-01-01',
+        #     'foo_2020-01-01',
+        #     'foo_2030-01-01',
+        #     'foo_2040-01-01',
+        # ]
+        # assert district_mock.deduped_versions_df['DST_VERSION_DATE'].tolist() == [
+        #     np.datetime64('2020-01-01'),
+        #     np.datetime64('2040-01-01'),
+        #     np.datetime64('2020-01-01'),
+        #     np.datetime64('2030-01-01'),
+        #     np.datetime64('2040-01-01'),
+        # ]
 
 
 class test_get_unique_district_versions():
