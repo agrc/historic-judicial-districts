@@ -339,7 +339,7 @@ class State:
             new_fields = [
                 ['DST_VERSION_KEY', 'TEXT'],
                 ['UNIQUE_ROW_KEY', 'TEXT'],
-                ['DST_VERSION_DATE', 'DATE'],
+                ['CHANGE_DATE_IN_DST', 'DATE'],
                 ['CHANGE_DATE', 'DATE'],  #: change_df date
                 ['CHANGE_END_DATE', 'DATE'],  #: change_df change_end_date
                 ['COUNTY_KEY', 'TEXT'],  #: change_df county_name
@@ -384,7 +384,7 @@ class State:
 
         new_fields = [
             ['DST_VERSION_KEY', 'TEXT'],  #: key for the dissolve
-            ['DST_VERSION_DATE', 'DATE'],
+            ['CHANGE_DATE_IN_DST', 'DATE'],
             ['DST_NUMBER', 'TEXT'],
         ]
 
@@ -398,7 +398,7 @@ class State:
                 insert_cursor.insertRow(nulls_to_nones(row))
 
         arcpy.management.Dissolve(
-            r'memory\districts_fc', out_path, ['DST_VERSION_KEY', 'DST_VERSION_DATE', 'DST_NUMBER']
+            r'memory\districts_fc', out_path, ['DST_VERSION_KEY', 'CHANGE_DATE_IN_DST', 'DST_NUMBER']
         )
 
 
@@ -606,9 +606,9 @@ class District:
     def find_records_versions(self):
         """Generates a dictionary of all the versions that each unique row belongs to.
 
-        Builds set of unique change dates in the District, which becomes its versions. For each record, determine which
-        of these change dates it belongs to/is present in via _get_unique_district_versions and a dictionary
-        comprehension.
+        Uses every unique change date in the whole state (which ensures it grabs counties leaving the district). For
+        each record, determine which of these change dates it belongs to/is present in via
+        _get_unique_district_versions and a dictionary comprehension.
         """
 
         self.district_records['UNIQUE_ROW_KEY'] = [
@@ -630,15 +630,22 @@ class District:
         """
         versions = []
         for row_key, version_list in self.row_key_and_versions.items():
-            for date in version_list:
+            for change_date in version_list:
                 #: creates [(row_key1, d_key1, date1), (row_key2, d_key1, date1), ...]
-                versions.append((row_key, f'{self.label}_{pd.to_datetime(date).strftime("%Y-%m-%d")}', date))
+                versions.append(
+                    (row_key, f'{self.label}_{pd.to_datetime(change_date).strftime("%Y-%m-%d")}', change_date)
+                )
 
-        self.versions_df = pd.DataFrame(versions, columns=['UNIQUE_ROW_KEY', 'DST_VERSION_KEY', 'DST_VERSION_DATE'])
+        #: CHANGE_DATE_IN_DST is the unique, state-wide change date (that may or may not contain a change for the
+        #: particular row key) that the row was evaluated for.
+        self.versions_df = pd.DataFrame(versions, columns=['UNIQUE_ROW_KEY', 'DST_VERSION_KEY', 'CHANGE_DATE_IN_DST'])
 
     def remove_duplicate_version_rows(self):
         """Filters rows based on the earliest unique dates for every UNIQUE_ROW_KEY using the dates from the entire
         district.
+
+        Necessary because _get_unique_district_versions iterates over every change date in the whole state; thus, each
+        district contains many records where nothing changed for that record on that date.
         """
 
         #: WIP
@@ -651,25 +658,31 @@ class District:
         #: list of dates for each county?
         #: first fix (as described) implemented below, working on tests
 
-        dates = list(self.versions_full_info_df.groupby('UNIQUE_ROW_KEY')['DST_VERSION_DATE'].min().unique())
+        #: Desired rows:
+        #:  * CHANGE_DATE_IN_DST is in the unique set of change dates for this district
+        #:  * CHANGE_DATE_IN_DST is when a county leaves the district (won't be in district's change dates unless
+        #:    another change happened at the same time)
+
+        dates = list(self.versions_full_info_df.groupby('UNIQUE_ROW_KEY')['CHANGE_DATE_IN_DST'].min().unique())
 
         #: Add dates for counties that leave the district
-        #: For each county in the district's versions_df, if that county's latest UNIQUE_ROW_KEY (by DST_VERSION_DATE)
-        #: has a DST_END_DATE that is after the DST_VERSION_DATE, add (that DST_END_DATE + 1) to dates.
+        #: For each county in the district's versions_df, if that county's latest UNIQUE_ROW_KEY (by CHANGE_DATE_IN_DST)
+        #: has a DST_END_DATE that is after the CHANGE_DATE_IN_DST, add (that DST_END_DATE + 1) to dates.
         for county in self.versions_full_info_df['COUNTY_KEY'].unique():
             county_subset = self.versions_full_info_df[(self.versions_full_info_df['COUNTY_KEY'] == county) &
-                                                       ~(self.versions_full_info_df['DST_VERSION_DATE'].isin(dates))]
+                                                       ~(self.versions_full_info_df['CHANGE_DATE_IN_DST'].isin(dates))]
             #: This is still failing to catch the next version after a county leaves case.
             if county_subset.empty:
                 continue
-            row = county_subset.loc[county_subset['DST_VERSION_DATE'].idxmax()]  #: Gets the index of the max value row
-            if row['DST_VERSION_DATE'] < row['DST_END_DATE']:
+            row = county_subset.loc[county_subset['CHANGE_DATE_IN_DST'].idxmax()
+                                   ]  #: Gets the index of the max value row
+            if row['CHANGE_DATE_IN_DST'] < row['DST_END_DATE']:
                 new_date = np.datetime64(row['DST_END_DATE'] + pd.Timedelta(days=1))
                 if new_date not in dates:
                     dates.append(new_date)
 
         self.deduped_versions_df = self.versions_full_info_df[
-            self.versions_full_info_df['DST_VERSION_DATE'].isin(dates)]
+            self.versions_full_info_df['CHANGE_DATE_IN_DST'].isin(dates)]
 
     def join_version_information(self):
         """For each record and district version, join all other info back in via UNIQUE_ROW_KEY
