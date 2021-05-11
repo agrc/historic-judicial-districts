@@ -663,6 +663,7 @@ class District:
         #:  * CHANGE_DATE_IN_DST is when a county leaves the district (won't be in district's change dates unless
         #:    another change happened at the same time)
 
+        #: Include the first date for every unique row key—the first time they show up.
         dates = list(self.versions_full_info_df.groupby('UNIQUE_ROW_KEY')['CHANGE_DATE_IN_DST'].min().unique())
 
         #: Add dates for counties that leave the district

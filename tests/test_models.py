@@ -822,8 +822,8 @@ class TestDistricts:
         versions_full_info_df = pd.DataFrame(
             columns=['COUNTY_KEY', 'UNIQUE_ROW_KEY', 'DST_VERSION_KEY', 'CHANGE_DATE_IN_DST', 'DST_END_DATE'],
             data=[
-                ['co1', 'co1_s1__d1', 'foo_2020-01-01', '2020-01-01', '2029-12-31'],
-                ['co1', 'co1_s1__d1', 'foo_2030-01-01', '2030-01-01', '2039-12-31'],
+                ['co1', 'co1_s1__d1', 'foo_2020-01-01', '2020-01-01', '2049-12-31'],
+                ['co1', 'co1_s1__d1', 'foo_2030-01-01', '2030-01-01', '2049-12-31'],
                 ['co1', 'co1_s1__d1', 'foo_2040-01-01', '2040-01-01', '2049-12-31'],
                 ['co2', 'co2_s1__d1', 'foo_2040-01-01', '2040-01-01', '2049-12-31'],
             ]
@@ -838,7 +838,7 @@ class TestDistricts:
         models.District.remove_duplicate_version_rows(district_mock)
 
         assert district_mock.deduped_versions_df.to_numpy().tolist() == [
-            ['co1', 'co1_s1__d1', 'foo_2020-01-01', np.datetime64('2020-01-01'), np.datetime64('2029-12-31')],
+            ['co1', 'co1_s1__d1', 'foo_2020-01-01', np.datetime64('2020-01-01'), np.datetime64('2049-12-31')],
             ['co1', 'co1_s1__d1', 'foo_2040-01-01', np.datetime64('2040-01-01'), np.datetime64('2049-12-31')],
             ['co2', 'co2_s1__d1', 'foo_2040-01-01', np.datetime64('2040-01-01'), np.datetime64('2049-12-31')],
         ]  # yapf: disable
@@ -847,8 +847,8 @@ class TestDistricts:
         versions_full_info_df = pd.DataFrame(
             columns=['COUNTY_KEY', 'UNIQUE_ROW_KEY', 'DST_VERSION_KEY', 'CHANGE_DATE_IN_DST', 'DST_END_DATE'],
             data=[
-                ['co1', 'co1_s1__d1', 'foo_2020-01-01', '2020-01-01', '2029-12-31'],
-                ['co1', 'co1_s1__d1', 'foo_2030-01-01', '2030-01-01', '2039-12-31'],
+                ['co1', 'co1_s1__d1', 'foo_2020-01-01', '2020-01-01', '2049-12-31'],
+                ['co1', 'co1_s1__d1', 'foo_2030-01-01', '2030-01-01', '2049-12-31'],
                 ['co1', 'co1_s1__d1', 'foo_2040-01-01', '2040-01-01', '2049-12-31'],
             ]
         )
@@ -862,20 +862,17 @@ class TestDistricts:
         models.District.remove_duplicate_version_rows(district_mock)
 
         assert district_mock.deduped_versions_df.to_numpy().tolist() == [
-            ['co1', 'co1_s1__d1', 'foo_2020-01-01', np.datetime64('2020-01-01'), np.datetime64('2029-12-31')],
+            ['co1', 'co1_s1__d1', 'foo_2020-01-01', np.datetime64('2020-01-01'), np.datetime64('2049-12-31')],
         ]  # yapf: disable
 
-    def test_remove_duplicate_version_rows_first_one_leaves_still_includes_next_version_after(self, mocker):
+    def test_remove_duplicate_version_rows_shape_changes_midway(self, mocker):
         versions_full_info_df = pd.DataFrame(
             columns=['COUNTY_KEY', 'UNIQUE_ROW_KEY', 'DST_VERSION_KEY', 'CHANGE_DATE_IN_DST', 'DST_END_DATE'],
             data=[
-                ['co1', 'co1_s1__d1', 'foo_2020-01-01', '2020-01-01', '2029-12-31'],
+                ['co1', 'co1_s1__d1', 'foo_2020-01-01', '2020-01-01', '2039-12-31'],
                 ['co1', 'co1_s1__d1', 'foo_2030-01-01', '2030-01-01', '2039-12-31'],
-                #: We assume co1 went to a different district at the 2040 change date
-                ['co2', 'co2_s1__d1', 'foo_2020-01-01', '2020-01-01', '2029-12-31'],
-                ['co2', 'co2_s1__d2', 'foo_2030-01-01', '2030-01-01', '2039-12-31'],
-                ['co2', 'co2_s1__d2', 'foo_2040-01-01', '2040-01-01', '2049-12-31'],
-                ['co2', 'co2_s1__d2', 'foo_2050-01-01', '2050-01-01', '2059-12-31'],
+                ['co1', 'co1_s2__d1', 'foo_2040-01-01', '2040-01-01', '2059-12-31'],
+                ['co1', 'co1_s2__d1', 'foo_2040-01-01', '2050-01-01', '2059-12-31'],
             ]
         )
 
@@ -888,11 +885,40 @@ class TestDistricts:
         models.District.remove_duplicate_version_rows(district_mock)
 
         assert district_mock.deduped_versions_df.to_numpy().tolist() == [
-            ['co1', 'co1_s1__d1', 'foo_2020-01-01', np.datetime64('2020-01-01'), np.datetime64('2029-12-31')],
-            ['co1', 'co1_s1__d1', 'foo_2030-01-01', np.datetime64('2030-01-01'), np.datetime64('2039-12-31')],
-            ['co2', 'co2_s1__d1', 'foo_2020-01-01', np.datetime64('2020-01-01'), np.datetime64('2029-12-31')],
-            ['co2', 'co2_s1__d2', 'foo_2030-01-01', np.datetime64('2030-01-01'), np.datetime64('2039-12-31')],
-            ['co2', 'co2_s1__d2', 'foo_2040-01-01', np.datetime64('2040-01-01'), np.datetime64('2049-12-31')],
+            ['co1', 'co1_s1__d1', 'foo_2020-01-01', np.datetime64('2020-01-01'), np.datetime64('2039-12-31')],
+            ['co1', 'co1_s2__d1', 'foo_2040-01-01', np.datetime64('2040-01-01'), np.datetime64('2059-12-31')],
+        ]  # yapf: disable
+
+    def test_remove_duplicate_version_rows_first_one_leaves_still_includes_next_version_after(self, mocker):
+        #: 2020: co1, co2
+        #: 2030: dupes
+        #: 2040: co2
+        #: 2050: dupes
+        versions_full_info_df = pd.DataFrame(
+            columns=['COUNTY_KEY', 'UNIQUE_ROW_KEY', 'DST_VERSION_KEY', 'CHANGE_DATE_IN_DST', 'DST_END_DATE'],
+            data=[
+                ['co1', 'co1_s1__d1', 'foo_2020-01-01', '2020-01-01', '2039-12-31'],
+                ['co1', 'co1_s1__d1', 'foo_2030-01-01', '2030-01-01', '2039-12-31'],
+                #: We assume co1 went to a different district at the 2040 change date
+                ['co2', 'co2_s1__d1', 'foo_2020-01-01', '2020-01-01', '2059-12-31'],
+                ['co2', 'co2_s1__d1', 'foo_2030-01-01', '2030-01-01', '2059-12-31'],
+                ['co2', 'co2_s1__d1', 'foo_2040-01-01', '2040-01-01', '2059-12-31'],
+                ['co2', 'co2_s1__d1', 'foo_2050-01-01', '2050-01-01', '2059-12-31'],
+            ]
+        )
+
+        versions_full_info_df['CHANGE_DATE_IN_DST'] = pd.to_datetime(versions_full_info_df['CHANGE_DATE_IN_DST'])
+        versions_full_info_df['DST_END_DATE'] = pd.to_datetime(versions_full_info_df['DST_END_DATE'])
+
+        district_mock = mocker.Mock()
+        district_mock.versions_full_info_df = versions_full_info_df
+
+        models.District.remove_duplicate_version_rows(district_mock)
+
+        assert district_mock.deduped_versions_df.to_numpy().tolist() == [
+            ['co1', 'co1_s1__d1', 'foo_2020-01-01', np.datetime64('2020-01-01'), np.datetime64('2039-12-31')],
+            ['co2', 'co2_s1__d1', 'foo_2020-01-01', np.datetime64('2020-01-01'), np.datetime64('2059-12-31')],
+            ['co2', 'co2_s1__d1', 'foo_2040-01-01', np.datetime64('2040-01-01'), np.datetime64('2059-12-31')],
         ]  # yapf: disable
 
     def test_remove_duplicate_version_rows_first_one_leaves_then_comes_back_includes_next_after_leaving(self, mocker):
@@ -904,8 +930,8 @@ class TestDistricts:
             data=[
                 ['co1', 'co1_s1__d1', 'foo_2020-01-01', '2020-01-01', '2029-12-31'],
                 ['co1', 'co1_s1__d3', 'foo_2040-01-01', '2040-01-01', '2049-12-31'],
-                ['co2', 'co2_s1__d1', 'foo_2020-01-01', '2020-01-01', '2029-12-31'],
-                ['co2', 'co2_s1__d1', 'foo_2030-01-01', '2030-01-01', '2039-12-31'],
+                ['co2', 'co2_s1__d1', 'foo_2020-01-01', '2020-01-01', '2049-12-31'],
+                ['co2', 'co2_s1__d1', 'foo_2030-01-01', '2030-01-01', '2049-12-31'],
                 ['co2', 'co2_s1__d1', 'foo_2040-01-01', '2040-01-01', '2049-12-31'],
             ]
         )
@@ -921,8 +947,8 @@ class TestDistricts:
         assert district_mock.deduped_versions_df.to_numpy().tolist() == [
             ['co1', 'co1_s1__d1', 'foo_2020-01-01', np.datetime64('2020-01-01'), np.datetime64('2029-12-31')],
             ['co1', 'co1_s1__d3', 'foo_2040-01-01', np.datetime64('2040-01-01'), np.datetime64('2049-12-31')],
-            ['co2', 'co2_s1__d1', 'foo_2020-01-01', np.datetime64('2020-01-01'), np.datetime64('2029-12-31')],
-            ['co2', 'co2_s1__d1', 'foo_2030-01-01', np.datetime64('2030-01-01'), np.datetime64('2039-12-31')],
+            ['co2', 'co2_s1__d1', 'foo_2020-01-01', np.datetime64('2020-01-01'), np.datetime64('2049-12-31')],
+            ['co2', 'co2_s1__d1', 'foo_2030-01-01', np.datetime64('2030-01-01'), np.datetime64('2049-12-31')],
             ['co2', 'co2_s1__d1', 'foo_2040-01-01', np.datetime64('2040-01-01'), np.datetime64('2049-12-31')],
         ]  # yapf: disable
 
