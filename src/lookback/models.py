@@ -44,6 +44,23 @@ def nulls_to_nones(row):
     return new_row
 
 
+def pairwise(iterable):
+    """Yields an item and the item after it in an iterable
+
+    Args:
+        iterable (iterable): The collection to iterate over
+
+    Yields:
+        tuple: An item and the next item
+    """
+    it = iter(iterable)
+    a = next(it, None)
+
+    for b in it:
+        yield (a, b)
+        a = b
+
+
 def _fix_change_end_dates(change_end_date, shape_key, shape_end, district_end):
 
     #: Change end date scenarios:
@@ -323,12 +340,11 @@ class State:
 
         self.district_versions_df = pd.DataFrame()
         for district in self.districts:
-            self.district_versions_df = self.district_versions_df.append(district.versions_full_info_df)
+            self.district_versions_df = self.district_versions_df.append(district.deduped_versions_df)
         # self.district_versions_df.to_pickle(
         #     r'C:\gis\Projects\HistoricCounties\Data\JudicialDistricts\district_versions_with_dupes.pkl'
         # )
         if out_path:
-            # self.district_versions_df.to_pickle(out_path)
 
             print(f'Writing district version parts out to {out_path}...')
             out_gdb = str(Path(out_path).parent)
@@ -648,39 +664,24 @@ class District:
         district contains many records where nothing changed for that record on that date.
         """
 
-        #: WIP
-        #: TODO: Again, this set of dates isn't catching any counties that leave the district after the last district
-        #: change date.
-        #: Also, is dropping district 3 at 1896 change date... why? Because it didn't change then... but it did- Davis
-        #: left, but it's next DST_END_DATE was NULL
-        #: To fix: get the list of unique dates of every county in the district... will this miss some dupes, though? We
-        #: just want the next date when it leaves the district... can we incorporate that into the logic that adds the
-        #: list of dates for each county?
-        #: first fix (as described) implemented below, working on tests
+        dates_and_row_keys = {}
+        all_unique_change_dates = sorted(list(self.versions_full_info_df['CHANGE_DATE_IN_DST'].unique()))
+        dates = []
 
-        #: Desired rows:
-        #:  * CHANGE_DATE_IN_DST is in the unique set of change dates for this district
-        #:  * CHANGE_DATE_IN_DST is when a county leaves the district (won't be in district's change dates unless
-        #:    another change happened at the same time)
+        #: Build sorted dictionary of dates and their URKs so we can compare subsequent dates
+        for date in all_unique_change_dates:
+            dates_and_row_keys[date] = list(
+                self.versions_full_info_df[self.versions_full_info_df['CHANGE_DATE_IN_DST'] == date]['UNIQUE_ROW_KEY']
+            )
 
-        #: Include the first date for every unique row key—the first time they show up.
-        dates = list(self.versions_full_info_df.groupby('UNIQUE_ROW_KEY')['CHANGE_DATE_IN_DST'].min().unique())
+        #: comparison below using pairwise() won't add the first date, but only add if it's not empty
+        if dates_and_row_keys[all_unique_change_dates[0]]:
+            dates.append(all_unique_change_dates[0])
 
-        #: Add dates for counties that leave the district
-        #: For each county in the district's versions_df, if that county's latest UNIQUE_ROW_KEY (by CHANGE_DATE_IN_DST)
-        #: has a DST_END_DATE that is after the CHANGE_DATE_IN_DST, add (that DST_END_DATE + 1) to dates.
-        for county in self.versions_full_info_df['COUNTY_KEY'].unique():
-            county_subset = self.versions_full_info_df[(self.versions_full_info_df['COUNTY_KEY'] == county) &
-                                                       ~(self.versions_full_info_df['CHANGE_DATE_IN_DST'].isin(dates))]
-            #: This is still failing to catch the next version after a county leaves case.
-            if county_subset.empty:
-                continue
-            row = county_subset.loc[county_subset['CHANGE_DATE_IN_DST'].idxmax()
-                                   ]  #: Gets the index of the max value row
-            if row['CHANGE_DATE_IN_DST'] < row['DST_END_DATE']:
-                new_date = np.datetime64(row['DST_END_DATE'] + pd.Timedelta(days=1))
-                if new_date not in dates:
-                    dates.append(new_date)
+        #: Include date if it is list of URKs is different from the previous dates' list (ie, there was a change to the district's config)
+        for first_date, next_date in pairwise(dates_and_row_keys):
+            if sorted(dates_and_row_keys[first_date]) != sorted(dates_and_row_keys[next_date]):
+                dates.append(next_date)
 
         self.deduped_versions_df = self.versions_full_info_df[
             self.versions_full_info_df['CHANGE_DATE_IN_DST'].isin(dates)]
