@@ -14,6 +14,7 @@ def main():
     change_dates_csv = r'C:\gis\Projects\HistoricCounties\Data\JudicialDistricts\change_dates.csv'
     counties_output_fc = r'C:\gis\Projects\HistoricCounties\HistoricCounties.gdb\test_output_counties'
     districts_output_fc = r'C:\gis\Projects\HistoricCounties\HistoricCounties.gdb\test_output_districts'
+    districts_duplicates_output_fc = r'C:\gis\Projects\HistoricCounties\HistoricCounties.gdb\test_output_districts_duplicates'
     district_version_parts_output_fc = r'C:\gis\Projects\HistoricCounties\HistoricCounties.gdb\test_output_district_version_parts'
 
     state = State()
@@ -32,6 +33,7 @@ def main():
     # state.combine_district_dicts(r'C:\gis\Projects\HistoricCounties\Data\JudicialDistricts\district_versions.pkl')
     state.combine_district_dicts(out_path=district_version_parts_output_fc)
     state.dissolve_districts(districts_output_fc)
+    state.dissolve_districts_duplicates(districts_duplicates_output_fc)
 
     # state.verify_counties()
 
