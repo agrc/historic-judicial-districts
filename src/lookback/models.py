@@ -53,6 +53,7 @@ def pairwise(iterable):
     Yields:
         tuple: An item and the next item
     """
+
     it = iter(iterable)
     a = next(it, None)
 
@@ -415,6 +416,44 @@ class State:
 
         arcpy.management.Dissolve(
             r'memory\districts_fc', out_path, ['DST_VERSION_KEY', 'CHANGE_DATE_IN_DST', 'DST_NUMBER']
+        )
+
+    def dissolve_districts_duplicates(self, out_path, epsg=26912):
+        """Dissolve all the possible district pieces by DST_VERSION_KEY for full historical record.
+
+        Args:
+            out_path (str): Feature class to save dissolved districts
+            epsg (int, optional): EPSG code for output projection. Defaults to 26912 (UTM 12N NAD83)
+        """
+
+        district_duplicates_versions_df = pd.DataFrame()
+        for district in self.districts:
+            district_duplicates_versions_df = district_duplicates_versions_df.append(district.versions_full_info_df)
+
+        print(f'Dissolving districts to {out_path}...')
+
+        spatial_reference = arcpy.SpatialReference(epsg)
+        arcpy.management.CreateFeatureclass(
+            'memory', 'districts_duplicates_fc', 'POLYGON', spatial_reference=spatial_reference
+        )
+
+        new_fields = [
+            ['DST_VERSION_KEY', 'TEXT'],  #: key for the dissolve
+            ['CHANGE_DATE_IN_DST', 'DATE'],
+            ['DST_NUMBER', 'TEXT'],
+        ]
+
+        arcpy.management.AddFields(r'memory\districts_duplicates_fc', new_fields)
+
+        #: Rename the data frame columns to match the output fields
+        cursor_fields = [field_name[0] for field_name in new_fields]  #: Only look at the renamed columns
+        cursor_fields.append('SHAPE@')  #: Make sure we've got geometry
+        with arcpy.da.InsertCursor(r'memory\districts_duplicates_fc', list(cursor_fields)) as insert_cursor:
+            for row in district_duplicates_versions_df[cursor_fields].values.tolist():
+                insert_cursor.insertRow(nulls_to_nones(row))
+
+        arcpy.management.Dissolve(
+            r'memory\districts_duplicates_fc', out_path, ['DST_VERSION_KEY', 'CHANGE_DATE_IN_DST', 'DST_NUMBER']
         )
 
 
