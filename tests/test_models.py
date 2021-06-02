@@ -957,32 +957,32 @@ class TestDistricts:
         district_mock.versions_full_info_df = pd.DataFrame(
             data={
                 'DST_VERSION_KEY': ['key1', 'key1', 'key1'],
-                'DST_NAME': ['county1', 'county2', 'county3']
+                'SHP_NAME': ['county1', 'county2', 'county3']
             }
         )
 
         models.District.build_list_of_constituent_counties(district_mock)
 
-        assert district_mock.versions_full_info_df['COUNTIES_STRING'].tolist() == ['county1, county2, county3'] * 3
+        assert district_mock.versions_full_info_df['COUNTIES_STRING'].tolist() == ['County1, County2, County3'] * 3
 
     def test_build_counties_string_gets_different_counties_in_two_keys(self, mocker):
         district_mock = mocker.Mock()
         district_mock.versions_full_info_df = pd.DataFrame(
             data={
                 'DST_VERSION_KEY': ['key1', 'key1', 'key1', 'key2', 'key2', 'key2'],
-                'DST_NAME': ['county1', 'county2', 'county3', 'county2', 'county3', 'county4']
+                'SHP_NAME': ['county1', 'county2', 'county3', 'county2', 'county3', 'county4']
             }
         )
 
         models.District.build_list_of_constituent_counties(district_mock)
 
         assert district_mock.versions_full_info_df['COUNTIES_STRING'].tolist() == [
-            'county1, county2, county3',
-            'county1, county2, county3',
-            'county1, county2, county3',
-            'county2, county3, county4',
-            'county2, county3, county4',
-            'county2, county3, county4',
+            'County1, County2, County3',
+            'County1, County2, County3',
+            'County1, County2, County3',
+            'County2, County3, County4',
+            'County2, County3, County4',
+            'County2, County3, County4',
         ]
 
     def test_build_counties_string_sorts_counties(self, mocker):
@@ -990,26 +990,26 @@ class TestDistricts:
         district_mock.versions_full_info_df = pd.DataFrame(
             data={
                 'DST_VERSION_KEY': ['key1', 'key1', 'key1'],
-                'DST_NAME': ['county2', 'county3', 'county1']
+                'SHP_NAME': ['county2', 'county3', 'county1']
             }
         )
 
         models.District.build_list_of_constituent_counties(district_mock)
 
-        assert district_mock.versions_full_info_df['COUNTIES_STRING'].tolist() == ['county1, county2, county3'] * 3
+        assert district_mock.versions_full_info_df['COUNTIES_STRING'].tolist() == ['County1, County2, County3'] * 3
 
     def test_build_counties_string_handles_na(self, mocker):
         district_mock = mocker.Mock()
         district_mock.versions_full_info_df = pd.DataFrame(
             data={
                 'DST_VERSION_KEY': ['key1', 'key1', 'key1'],
-                'DST_NAME': [np.nan, 'county2', 'county3']
+                'SHP_NAME': [np.nan, 'County2', 'County3']
             }
         )
 
         models.District.build_list_of_constituent_counties(district_mock)
 
-        assert district_mock.versions_full_info_df['COUNTIES_STRING'].tolist() == ['county2, county3'] * 3
+        assert district_mock.versions_full_info_df['COUNTIES_STRING'].tolist() == ['County2, County3'] * 3
 
 
 class test_get_unique_district_versions():

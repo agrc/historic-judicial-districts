@@ -759,11 +759,11 @@ class District:
                     sorted(
                         list(
                             self.versions_full_info_df[(self.versions_full_info_df['DST_VERSION_KEY'] == key) &
-                                                       (~self.versions_full_info_df['DST_NAME'].isna())]
-                            ['DST_NAME'].unique()
+                                                       (~self.versions_full_info_df['SHP_NAME'].isna())]
+                            ['SHP_NAME'].unique()
                         )
                     )
-                )
+                ).title()
 
     def _get_unique_district_versions(self, unique_dates, start_date, end_date):
         """Get a list of versions this record is part of based on start and end date.
