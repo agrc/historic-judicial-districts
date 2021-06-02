@@ -755,11 +755,11 @@ class District:
         # self.versions_full_info_df.loc['COUNTIES_STRING'] = np.nan
         for key in self.versions_full_info_df['DST_VERSION_KEY'].unique():
             self.versions_full_info_df.loc[
-                (self.versions_full_info_df['DST_VERSION_KEY'] == key) &
-                (~self.versions_full_info_df['DST_NAME'].isna()), 'COUNTIES_STRING'] = ', '.join(
+                (self.versions_full_info_df['DST_VERSION_KEY'] == key), 'COUNTIES_STRING'] = ', '.join(
                     sorted(
                         list(
-                            self.versions_full_info_df[self.versions_full_info_df['DST_VERSION_KEY'] == key]
+                            self.versions_full_info_df[(self.versions_full_info_df['DST_VERSION_KEY'] == key) &
+                                                       (~self.versions_full_info_df['DST_NAME'].isna())]
                             ['DST_NAME'].unique()
                         )
                     )
