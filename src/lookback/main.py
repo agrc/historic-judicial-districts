@@ -12,10 +12,10 @@ def main():
     districts_csv = r'C:\gis\Projects\HistoricCounties\Data\JudicialDistricts\test.csv'
     counties_shp = r'C:\gis\Projects\HistoricCounties\Data\HistoricalCountyBoundaries\UT_Historical_Counties\UT_Historical_Counties.shp'
     change_dates_csv = r'C:\gis\Projects\HistoricCounties\Data\JudicialDistricts\change_dates.csv'
-    counties_output_fc = r'C:\gis\Projects\HistoricCounties\HistoricCounties.gdb\test_output_counties'
-    districts_output_fc = r'C:\gis\Projects\HistoricCounties\HistoricCounties.gdb\test_output_districts'
-    districts_duplicates_output_fc = r'C:\gis\Projects\HistoricCounties\HistoricCounties.gdb\test_output_districts_duplicates'
-    district_version_parts_output_fc = r'C:\gis\Projects\HistoricCounties\HistoricCounties.gdb\test_output_district_version_parts'
+    counties_output_fc = r'C:\gis\Projects\HistoricCounties\HistoricCounties.gdb\final_counties'
+    districts_output_fc = r'C:\gis\Projects\HistoricCounties\HistoricCounties.gdb\final_districts'
+    districts_duplicates_output_fc = r'C:\gis\Projects\HistoricCounties\HistoricCounties.gdb\final_districts_duplicates'
+    district_version_parts_output_fc = r'C:\gis\Projects\HistoricCounties\HistoricCounties.gdb\final_district_version_parts'
 
     state = State()
     state.load_counties(counties_shp)
