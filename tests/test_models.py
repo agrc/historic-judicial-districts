@@ -792,7 +792,7 @@ class TestDistricts:
 
     def test_remove_duplicate_version_rows_one_changes_at_end(self, mocker):
         versions_full_info_df = pd.DataFrame(
-            columns=['COUNTY_KEY', 'UNIQUE_ROW_KEY', 'DST_VERSION_KEY', 'CHANGE_DATE_IN_DST', 'DST_END_DATE'],
+            columns=['COUNTY_KEY', 'UNIQUE_ROW_KEY', 'DST_VERSION_KEY', 'DST_EFFECTIVE_DATE', 'DST_END_DATE'],
             data=[
                 ['co1', 'co1_s1__d1', 'foo_2020-01-01', '2020-01-01', '2049-12-31'],
                 ['co1', 'co1_s1__d1', 'foo_2030-01-01', '2030-01-01', '2049-12-31'],
@@ -803,7 +803,7 @@ class TestDistricts:
             ]
         )
 
-        versions_full_info_df['CHANGE_DATE_IN_DST'] = pd.to_datetime(versions_full_info_df['CHANGE_DATE_IN_DST'])
+        versions_full_info_df['DST_EFFECTIVE_DATE'] = pd.to_datetime(versions_full_info_df['DST_EFFECTIVE_DATE'])
         versions_full_info_df['DST_END_DATE'] = pd.to_datetime(versions_full_info_df['DST_END_DATE'])
 
         district_mock = mocker.Mock()
@@ -820,7 +820,7 @@ class TestDistricts:
 
     def test_remove_duplicate_version_rows_new_one_after_multiple_change_dates(self, mocker):
         versions_full_info_df = pd.DataFrame(
-            columns=['COUNTY_KEY', 'UNIQUE_ROW_KEY', 'DST_VERSION_KEY', 'CHANGE_DATE_IN_DST', 'DST_END_DATE'],
+            columns=['COUNTY_KEY', 'UNIQUE_ROW_KEY', 'DST_VERSION_KEY', 'DST_EFFECTIVE_DATE', 'DST_END_DATE'],
             data=[
                 ['co1', 'co1_s1__d1', 'foo_2020-01-01', '2020-01-01', '2049-12-31'],
                 ['co1', 'co1_s1__d1', 'foo_2030-01-01', '2030-01-01', '2049-12-31'],
@@ -829,7 +829,7 @@ class TestDistricts:
             ]
         )
 
-        versions_full_info_df['CHANGE_DATE_IN_DST'] = pd.to_datetime(versions_full_info_df['CHANGE_DATE_IN_DST'])
+        versions_full_info_df['DST_EFFECTIVE_DATE'] = pd.to_datetime(versions_full_info_df['DST_EFFECTIVE_DATE'])
         versions_full_info_df['DST_END_DATE'] = pd.to_datetime(versions_full_info_df['DST_END_DATE'])
 
         district_mock = mocker.Mock()
@@ -845,7 +845,7 @@ class TestDistricts:
 
     def test_remove_duplicate_version_rows_many_of_same(self, mocker):
         versions_full_info_df = pd.DataFrame(
-            columns=['COUNTY_KEY', 'UNIQUE_ROW_KEY', 'DST_VERSION_KEY', 'CHANGE_DATE_IN_DST', 'DST_END_DATE'],
+            columns=['COUNTY_KEY', 'UNIQUE_ROW_KEY', 'DST_VERSION_KEY', 'DST_EFFECTIVE_DATE', 'DST_END_DATE'],
             data=[
                 ['co1', 'co1_s1__d1', 'foo_2020-01-01', '2020-01-01', '2049-12-31'],
                 ['co1', 'co1_s1__d1', 'foo_2030-01-01', '2030-01-01', '2049-12-31'],
@@ -853,7 +853,7 @@ class TestDistricts:
             ]
         )
 
-        versions_full_info_df['CHANGE_DATE_IN_DST'] = pd.to_datetime(versions_full_info_df['CHANGE_DATE_IN_DST'])
+        versions_full_info_df['DST_EFFECTIVE_DATE'] = pd.to_datetime(versions_full_info_df['DST_EFFECTIVE_DATE'])
         versions_full_info_df['DST_END_DATE'] = pd.to_datetime(versions_full_info_df['DST_END_DATE'])
 
         district_mock = mocker.Mock()
@@ -867,7 +867,7 @@ class TestDistricts:
 
     def test_remove_duplicate_version_rows_shape_changes_midway(self, mocker):
         versions_full_info_df = pd.DataFrame(
-            columns=['COUNTY_KEY', 'UNIQUE_ROW_KEY', 'DST_VERSION_KEY', 'CHANGE_DATE_IN_DST', 'DST_END_DATE'],
+            columns=['COUNTY_KEY', 'UNIQUE_ROW_KEY', 'DST_VERSION_KEY', 'DST_EFFECTIVE_DATE', 'DST_END_DATE'],
             data=[
                 ['co1', 'co1_s1__d1', 'foo_2020-01-01', '2020-01-01', '2039-12-31'],
                 ['co1', 'co1_s1__d1', 'foo_2030-01-01', '2030-01-01', '2039-12-31'],
@@ -876,7 +876,7 @@ class TestDistricts:
             ]
         )
 
-        versions_full_info_df['CHANGE_DATE_IN_DST'] = pd.to_datetime(versions_full_info_df['CHANGE_DATE_IN_DST'])
+        versions_full_info_df['DST_EFFECTIVE_DATE'] = pd.to_datetime(versions_full_info_df['DST_EFFECTIVE_DATE'])
         versions_full_info_df['DST_END_DATE'] = pd.to_datetime(versions_full_info_df['DST_END_DATE'])
 
         district_mock = mocker.Mock()
@@ -895,7 +895,7 @@ class TestDistricts:
         #: 2040: co2
         #: 2050: dupes
         versions_full_info_df = pd.DataFrame(
-            columns=['COUNTY_KEY', 'UNIQUE_ROW_KEY', 'DST_VERSION_KEY', 'CHANGE_DATE_IN_DST', 'DST_END_DATE'],
+            columns=['COUNTY_KEY', 'UNIQUE_ROW_KEY', 'DST_VERSION_KEY', 'DST_EFFECTIVE_DATE', 'DST_END_DATE'],
             data=[
                 ['co1', 'co1_s1__d1', 'foo_2020-01-01', '2020-01-01', '2039-12-31'],
                 ['co1', 'co1_s1__d1', 'foo_2030-01-01', '2030-01-01', '2039-12-31'],
@@ -907,7 +907,7 @@ class TestDistricts:
             ]
         )
 
-        versions_full_info_df['CHANGE_DATE_IN_DST'] = pd.to_datetime(versions_full_info_df['CHANGE_DATE_IN_DST'])
+        versions_full_info_df['DST_EFFECTIVE_DATE'] = pd.to_datetime(versions_full_info_df['DST_EFFECTIVE_DATE'])
         versions_full_info_df['DST_END_DATE'] = pd.to_datetime(versions_full_info_df['DST_END_DATE'])
 
         district_mock = mocker.Mock()
@@ -926,7 +926,7 @@ class TestDistricts:
         #: 2030: co2
         #: 2040: co1, co2
         versions_full_info_df = pd.DataFrame(
-            columns=['COUNTY_KEY', 'UNIQUE_ROW_KEY', 'DST_VERSION_KEY', 'CHANGE_DATE_IN_DST', 'DST_END_DATE'],
+            columns=['COUNTY_KEY', 'UNIQUE_ROW_KEY', 'DST_VERSION_KEY', 'DST_EFFECTIVE_DATE', 'DST_END_DATE'],
             data=[
                 ['co1', 'co1_s1__d1', 'foo_2020-01-01', '2020-01-01', '2029-12-31'],
                 ['co1', 'co1_s1__d3', 'foo_2040-01-01', '2040-01-01', '2049-12-31'],
@@ -936,7 +936,7 @@ class TestDistricts:
             ]
         )
 
-        versions_full_info_df['CHANGE_DATE_IN_DST'] = pd.to_datetime(versions_full_info_df['CHANGE_DATE_IN_DST'])
+        versions_full_info_df['DST_EFFECTIVE_DATE'] = pd.to_datetime(versions_full_info_df['DST_EFFECTIVE_DATE'])
         versions_full_info_df['DST_END_DATE'] = pd.to_datetime(versions_full_info_df['DST_END_DATE'])
 
         district_mock = mocker.Mock()
@@ -963,7 +963,7 @@ class TestDistricts:
 
         models.District.build_list_of_constituent_counties(district_mock)
 
-        assert district_mock.versions_full_info_df['COUNTIES_STRING'].tolist() == ['County1, County2, County3'] * 3
+        assert district_mock.versions_full_info_df['COUNTIES'].tolist() == ['County1, County2, County3'] * 3
 
     def test_build_counties_string_gets_different_counties_in_two_keys(self, mocker):
         district_mock = mocker.Mock()
@@ -976,7 +976,7 @@ class TestDistricts:
 
         models.District.build_list_of_constituent_counties(district_mock)
 
-        assert district_mock.versions_full_info_df['COUNTIES_STRING'].tolist() == [
+        assert district_mock.versions_full_info_df['COUNTIES'].tolist() == [
             'County1, County2, County3',
             'County1, County2, County3',
             'County1, County2, County3',
@@ -996,7 +996,7 @@ class TestDistricts:
 
         models.District.build_list_of_constituent_counties(district_mock)
 
-        assert district_mock.versions_full_info_df['COUNTIES_STRING'].tolist() == ['County1, County2, County3'] * 3
+        assert district_mock.versions_full_info_df['COUNTIES'].tolist() == ['County1, County2, County3'] * 3
 
     def test_build_counties_string_handles_na(self, mocker):
         district_mock = mocker.Mock()
@@ -1009,7 +1009,7 @@ class TestDistricts:
 
         models.District.build_list_of_constituent_counties(district_mock)
 
-        assert district_mock.versions_full_info_df['COUNTIES_STRING'].tolist() == ['County2, County3'] * 3
+        assert district_mock.versions_full_info_df['COUNTIES'].tolist() == ['County2, County3'] * 3
 
 
 class test_get_unique_district_versions():

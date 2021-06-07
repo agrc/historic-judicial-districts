@@ -283,8 +283,8 @@ class State:
         new_fields = [
             ['CHANGE_DATE', 'DATE'],  #: change_df date
             ['CHANGE_END_DATE', 'DATE'],  #: change_df change_end_date
-            ['COUNTY_KEY', 'TEXT'],  #: change_df county_name
-            ['COMBINED_DST_KEY', 'TEXT'],  #: DST_NUMBER + _ + CHANGE_DATE
+            # ['COUNTY_KEY', 'TEXT'],  #: change_df county_name
+            # ['COMBINED_DST_KEY', 'TEXT'],  #: DST_NUMBER + _ + CHANGE_DATE
             ['SHP_NAME', 'TEXT'],  #: shape_df NAME
             ['SHP_ID', 'TEXT'],  #: shape_df ID
             ['SHP_FIPS', 'TEXT'],  #: shape_df FIPS
@@ -298,8 +298,8 @@ class State:
             ['SHP_CHANGE', 'TEXT'],  #: shape_df CHANGE
             ['SHP_CITATION', 'TEXT'],  #: shape_df CITATION
             ['SHP_AREA_SQMI', 'LONG'],  #: shape_df AREA_SQMI
-            ['SHP_KEY', 'TEXT'],  #: shape_df shape_key
-            ['DST_KEY', 'TEXT'],  #: district_df district_key
+            # ['SHP_KEY', 'TEXT'],  #: shape_df shape_key
+            # ['DST_KEY', 'TEXT'],  #: district_df district_key
         ]
 
         arcpy.management.AddFields(out_path, new_fields)
@@ -356,11 +356,11 @@ class State:
 
             new_fields = [
                 ['DST_VERSION_KEY', 'TEXT'],
-                ['UNIQUE_ROW_KEY', 'TEXT'],
-                ['CHANGE_DATE_IN_DST', 'DATE'],
+                # ['UNIQUE_ROW_KEY', 'TEXT'],
+                ['DST_EFFECTIVE_DATE', 'DATE'],
                 ['CHANGE_DATE', 'DATE'],  #: change_df date
                 ['CHANGE_END_DATE', 'DATE'],  #: change_df change_end_date
-                ['COUNTY_KEY', 'TEXT'],  #: change_df county_name
+                # ['COUNTY_KEY', 'TEXT'],  #: change_df county_name
                 ['SHP_NAME', 'TEXT'],  #: shape_df NAME
                 ['SHP_ID', 'TEXT'],  #: shape_df ID
                 ['SHP_FIPS', 'TEXT'],  #: shape_df FIPS
@@ -374,8 +374,8 @@ class State:
                 ['SHP_CHANGE', 'TEXT'],  #: shape_df CHANGE
                 ['SHP_CITATION', 'TEXT'],  #: shape_df CITATION
                 ['SHP_AREA_SQMI', 'LONG'],  #: shape_df AREA_SQMI
-                ['SHP_KEY', 'TEXT'],  #: shape_df shape_key
-                ['DST_KEY', 'TEXT'],  #: district_df district_key
+                # ['SHP_KEY', 'TEXT'],  #: shape_df shape_key
+                # ['DST_KEY', 'TEXT'],  #: district_df district_key
             ]
 
             arcpy.management.AddFields(out_path, new_fields)
@@ -402,9 +402,9 @@ class State:
 
         new_fields = [
             ['DST_VERSION_KEY', 'TEXT'],  #: key for the dissolve
-            ['CHANGE_DATE_IN_DST', 'DATE'],
+            ['DST_EFFECTIVE_DATE', 'DATE'],
             ['DST_NUMBER', 'TEXT'],
-            ['COUNTIES_STRING', 'TEXT'],
+            ['COUNTIES', 'TEXT'],
         ]
 
         arcpy.management.AddFields(r'memory\districts_fc', new_fields)
@@ -417,8 +417,7 @@ class State:
                 insert_cursor.insertRow(nulls_to_nones(row))
 
         arcpy.management.Dissolve(
-            r'memory\districts_fc', out_path,
-            ['DST_VERSION_KEY', 'CHANGE_DATE_IN_DST', 'DST_NUMBER', 'COUNTIES_STRING']
+            r'memory\districts_fc', out_path, ['DST_VERSION_KEY', 'DST_EFFECTIVE_DATE', 'DST_NUMBER', 'COUNTIES']
         )
 
     def dissolve_districts_duplicates(self, out_path, epsg=26912):
@@ -447,9 +446,9 @@ class State:
 
         new_fields = [
             ['DST_VERSION_KEY', 'TEXT'],  #: key for the dissolve
-            ['CHANGE_DATE_IN_DST', 'DATE'],
+            ['DST_EFFECTIVE_DATE', 'DATE'],
             ['DST_NUMBER', 'TEXT'],
-            ['COUNTIES_STRING', 'TEXT'],
+            ['COUNTIES', 'TEXT'],
         ]
 
         arcpy.management.AddFields(r'memory\districts_duplicates_fc', new_fields)
@@ -463,7 +462,7 @@ class State:
 
         arcpy.management.Dissolve(
             r'memory\districts_duplicates_fc', out_path,
-            ['DST_VERSION_KEY', 'CHANGE_DATE_IN_DST', 'DST_NUMBER', 'COUNTIES_STRING']
+            ['DST_VERSION_KEY', 'DST_EFFECTIVE_DATE', 'DST_NUMBER', 'COUNTIES']
         )
 
 
@@ -701,9 +700,9 @@ class District:
                     (row_key, f'{self.label}_{pd.to_datetime(change_date).strftime("%Y-%m-%d")}', change_date)
                 )
 
-        #: CHANGE_DATE_IN_DST is the unique, state-wide change date (that may or may not contain a change for the
+        #: DST_EFFECTIVE_DATE is the unique, state-wide change date (that may or may not contain a change for the
         #: particular row key) that the row was evaluated for.
-        self.versions_df = pd.DataFrame(versions, columns=['UNIQUE_ROW_KEY', 'DST_VERSION_KEY', 'CHANGE_DATE_IN_DST'])
+        self.versions_df = pd.DataFrame(versions, columns=['UNIQUE_ROW_KEY', 'DST_VERSION_KEY', 'DST_EFFECTIVE_DATE'])
 
     def remove_duplicate_version_rows(self):
         """Filters rows based on the earliest unique dates for every UNIQUE_ROW_KEY using the dates from the entire
@@ -714,13 +713,13 @@ class District:
         """
 
         dates_and_row_keys = {}
-        all_unique_change_dates = sorted(list(self.versions_full_info_df['CHANGE_DATE_IN_DST'].unique()))
+        all_unique_change_dates = sorted(list(self.versions_full_info_df['DST_EFFECTIVE_DATE'].unique()))
         dates = []
 
         #: Build sorted dictionary of dates and their URKs so we can compare subsequent dates
         for date in all_unique_change_dates:
             dates_and_row_keys[date] = list(
-                self.versions_full_info_df[self.versions_full_info_df['CHANGE_DATE_IN_DST'] == date]['UNIQUE_ROW_KEY']
+                self.versions_full_info_df[self.versions_full_info_df['DST_EFFECTIVE_DATE'] == date]['UNIQUE_ROW_KEY']
             )
 
         #: comparison below using pairwise() won't add the first date, but only add if it's not empty
@@ -733,7 +732,7 @@ class District:
                 dates.append(next_date)
 
         self.deduped_versions_df = self.versions_full_info_df[
-            self.versions_full_info_df['CHANGE_DATE_IN_DST'].isin(dates)]
+            self.versions_full_info_df['DST_EFFECTIVE_DATE'].isin(dates)]
 
     def join_version_information(self):
         """For each record and district version, join all other info back in via UNIQUE_ROW_KEY
@@ -752,10 +751,10 @@ class District:
         up that version)
         """
         #: Build string of counties that share a DST_VERSION_KEY (ie, all the counties that make up the version)
-        # self.versions_full_info_df.loc['COUNTIES_STRING'] = np.nan
+        # self.versions_full_info_df.loc['COUNTIES'] = np.nan
         for key in self.versions_full_info_df['DST_VERSION_KEY'].unique():
             self.versions_full_info_df.loc[
-                (self.versions_full_info_df['DST_VERSION_KEY'] == key), 'COUNTIES_STRING'] = ', '.join(
+                (self.versions_full_info_df['DST_VERSION_KEY'] == key), 'COUNTIES'] = ', '.join(
                     sorted(
                         list(
                             self.versions_full_info_df[(self.versions_full_info_df['DST_VERSION_KEY'] == key) &
