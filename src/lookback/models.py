@@ -255,10 +255,10 @@ class State:
             'shape_key': 'SHP_KEY',
             'district_key': 'DST_KEY',
             'SHAPE@': 'SHAPE@',
-            'change_date': 'CHANGE_DATE',
+            'change_date': 'COUNTY_EFFECTIVE_DATE',
             'county_name': 'COUNTY_KEY',
             'CountyName': 'DST_NAME',
-            'change_end_date': 'CHANGE_END_DATE',
+            'change_end_date': 'COUNTY_EFFECTIVE_END_DATE',
         }
 
         self.output_df.rename(columns=df_renamer, inplace=True)
@@ -281,10 +281,10 @@ class State:
         arcpy.management.CreateFeatureclass(out_gdb, out_name, 'POLYGON', spatial_reference=spatial_reference)
 
         new_fields = [
-            ['CHANGE_DATE', 'DATE'],  #: change_df date
-            ['CHANGE_END_DATE', 'DATE'],  #: change_df change_end_date
+            ['COUNTY_EFFECTIVE_DATE', 'DATE'],  #: change_df date
+            ['COUNTY_EFFECTIVE_END_DATE', 'DATE'],  #: change_df change_end_date
             # ['COUNTY_KEY', 'TEXT'],  #: change_df county_name
-            # ['COMBINED_DST_KEY', 'TEXT'],  #: DST_NUMBER + _ + CHANGE_DATE
+            # ['COMBINED_DST_KEY', 'TEXT'],  #: DST_NUMBER + _ + COUNTY_EFFECTIVE_DATE
             ['SHP_NAME', 'TEXT'],  #: shape_df NAME
             ['SHP_ID', 'TEXT'],  #: shape_df ID
             ['SHP_FIPS', 'TEXT'],  #: shape_df FIPS
@@ -355,11 +355,9 @@ class State:
             arcpy.management.CreateFeatureclass(out_gdb, out_name, 'POLYGON', spatial_reference=spatial_reference)
 
             new_fields = [
-                ['DST_VERSION_KEY', 'TEXT'],
-                # ['UNIQUE_ROW_KEY', 'TEXT'],
                 ['DST_EFFECTIVE_DATE', 'DATE'],
-                ['CHANGE_DATE', 'DATE'],  #: change_df date
-                ['CHANGE_END_DATE', 'DATE'],  #: change_df change_end_date
+                ['COUNTY_EFFECTIVE_DATE', 'DATE'],  #: change_df date
+                ['COUNTY_EFFECTIVE_END_DATE', 'DATE'],  #: change_df change_end_date
                 # ['COUNTY_KEY', 'TEXT'],  #: change_df county_name
                 ['SHP_NAME', 'TEXT'],  #: shape_df NAME
                 ['SHP_ID', 'TEXT'],  #: shape_df ID
@@ -376,6 +374,8 @@ class State:
                 ['SHP_AREA_SQMI', 'LONG'],  #: shape_df AREA_SQMI
                 # ['SHP_KEY', 'TEXT'],  #: shape_df shape_key
                 # ['DST_KEY', 'TEXT'],  #: district_df district_key
+                ['DST_VERSION_KEY', 'TEXT'],
+                # ['UNIQUE_ROW_KEY', 'TEXT'],
             ]
 
             arcpy.management.AddFields(out_path, new_fields)
@@ -401,10 +401,10 @@ class State:
         arcpy.management.CreateFeatureclass('memory', 'districts_fc', 'POLYGON', spatial_reference=spatial_reference)
 
         new_fields = [
-            ['DST_VERSION_KEY', 'TEXT'],  #: key for the dissolve
             ['DST_EFFECTIVE_DATE', 'DATE'],
             ['DST_NUMBER', 'TEXT'],
             ['COUNTIES', 'TEXT'],
+            ['DST_VERSION_KEY', 'TEXT'],  #: key for the dissolve
         ]
 
         arcpy.management.AddFields(r'memory\districts_fc', new_fields)
@@ -445,10 +445,10 @@ class State:
         )
 
         new_fields = [
-            ['DST_VERSION_KEY', 'TEXT'],  #: key for the dissolve
             ['DST_EFFECTIVE_DATE', 'DATE'],
             ['DST_NUMBER', 'TEXT'],
             ['COUNTIES', 'TEXT'],
+            ['DST_VERSION_KEY', 'TEXT'],  #: key for the dissolve
         ]
 
         arcpy.management.AddFields(r'memory\districts_duplicates_fc', new_fields)
@@ -661,7 +661,7 @@ class District:
     def __init__(self, label, joined_df):
         self.label = label
         self.district_records: pd.DataFrame = joined_df[joined_df['DST_NUMBER'] == self.label].copy()
-        self.unique_change_dates = list(joined_df['CHANGE_DATE'].unique())
+        self.unique_change_dates = list(joined_df['COUNTY_EFFECTIVE_DATE'].unique())
         self.row_key_and_versions = None
         self.versions_df: pd.DataFrame
         self.deduped_versions_df: pd.DataFrame
@@ -684,8 +684,8 @@ class District:
             row_key: self._get_unique_district_versions(self.unique_change_dates, start_date, end_date)
             for row_key, start_date, end_date in zip(
                 self.district_records['UNIQUE_ROW_KEY'],
-                self.district_records['CHANGE_DATE'],
-                self.district_records['CHANGE_END_DATE'],
+                self.district_records['COUNTY_EFFECTIVE_DATE'],
+                self.district_records['COUNTY_EFFECTIVE_END_DATE'],
             )
         }
 
