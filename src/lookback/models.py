@@ -332,6 +332,7 @@ class State:
             district.join_version_information()
             district.build_list_of_constituent_counties()
             district.remove_duplicate_version_rows()
+            # district.calc_deduped_district_end_dates()
 
     def combine_district_dicts(self, out_path=None, epsg=26912):
         """Merge all the district's dataframes into a single dataframe, pickle if desired
@@ -346,6 +347,7 @@ class State:
         # self.district_versions_df.to_pickle(
         #     r'C:\gis\Projects\HistoricCounties\Data\JudicialDistricts\district_versions_with_dupes.pkl'
         # )
+
         if out_path:
 
             print(f'Writing district version parts out to {out_path}...')
@@ -403,8 +405,9 @@ class State:
         new_fields = [
             ['DST_VERSION_KEY', 'TEXT'],  #: key for the dissolve
             ['CHANGE_DATE_IN_DST', 'DATE'],
+            # ['END_DATE', 'DATE'],
             ['DST_NUMBER', 'TEXT'],
-            ['COUNTIES_STRING', 'TEXT'],
+            ['COUNTIES', 'TEXT'],
         ]
 
         arcpy.management.AddFields(r'memory\districts_fc', new_fields)
@@ -417,8 +420,7 @@ class State:
                 insert_cursor.insertRow(nulls_to_nones(row))
 
         arcpy.management.Dissolve(
-            r'memory\districts_fc', out_path,
-            ['DST_VERSION_KEY', 'CHANGE_DATE_IN_DST', 'DST_NUMBER', 'COUNTIES_STRING']
+            r'memory\districts_fc', out_path, ['DST_VERSION_KEY', 'CHANGE_DATE_IN_DST', 'DST_NUMBER', 'COUNTIES']
         )
 
     def dissolve_districts_duplicates(self, out_path, epsg=26912):
@@ -433,10 +435,10 @@ class State:
         for district in self.districts:
             district_duplicates_versions_df = district_duplicates_versions_df.append(district.versions_full_info_df)
 
-        # print('Pickling...')
-        # district_duplicates_versions_df.to_pickle(
-        #     r'C:\gis\Projects\HistoricCounties\Data\JudicialDistricts\district_duplicates_versions_df.pkl'
-        # )
+        print('Pickling...')
+        district_duplicates_versions_df.to_pickle(
+            r'C:\gis\Projects\HistoricCounties\Data\JudicialDistricts\district_duplicates_versions_df.pkl'
+        )
 
         print(f'Dissolving districts to {out_path}...')
 
@@ -449,7 +451,7 @@ class State:
             ['DST_VERSION_KEY', 'TEXT'],  #: key for the dissolve
             ['CHANGE_DATE_IN_DST', 'DATE'],
             ['DST_NUMBER', 'TEXT'],
-            ['COUNTIES_STRING', 'TEXT'],
+            ['COUNTIES', 'TEXT'],
         ]
 
         arcpy.management.AddFields(r'memory\districts_duplicates_fc', new_fields)
@@ -463,7 +465,7 @@ class State:
 
         arcpy.management.Dissolve(
             r'memory\districts_duplicates_fc', out_path,
-            ['DST_VERSION_KEY', 'CHANGE_DATE_IN_DST', 'DST_NUMBER', 'COUNTIES_STRING']
+            ['DST_VERSION_KEY', 'CHANGE_DATE_IN_DST', 'DST_NUMBER', 'COUNTIES']
         )
 
 
@@ -735,6 +737,18 @@ class District:
         self.deduped_versions_df = self.versions_full_info_df[
             self.versions_full_info_df['CHANGE_DATE_IN_DST'].isin(dates)]
 
+    def calc_deduped_district_end_dates(self):
+        """Calculate an end date for each version based on the next version's start date
+        """
+        #: End date is one day before the next rows start date
+        #: This assumes rows are sorted by dates, which may not be guaranteed.
+        self.deduped_versions_df['END_DATE'] = self.deduped_versions_df['CHANGE_DATE_IN_DST'].shift(-1) - pd.Timedelta(
+            days=1
+        )
+
+        #: TODO: This has no way of handling districts that go extinct (1, 1S, 1N).
+        #: Looking at the shp/dst end dates in this district will miss change dates due to counties join the district
+
     def join_version_information(self):
         """For each record and district version, join all other info back in via UNIQUE_ROW_KEY
         """
@@ -751,11 +765,11 @@ class District:
         """Build comma-separated string of all unique counties found in each DST_VERSION_KEY (all the counties that make
         up that version)
         """
-        #: Build string of counties that share a DST_VERSION_KEY (ie, all the counties that make up the version)
-        # self.versions_full_info_df.loc['COUNTIES_STRING'] = np.nan
+
+        # self.versions_full_info_df.loc['COUNTIES'] = np.nan
         for key in self.versions_full_info_df['DST_VERSION_KEY'].unique():
             self.versions_full_info_df.loc[
-                (self.versions_full_info_df['DST_VERSION_KEY'] == key), 'COUNTIES_STRING'] = ', '.join(
+                (self.versions_full_info_df['DST_VERSION_KEY'] == key), 'COUNTIES'] = ', '.join(
                     sorted(
                         list(
                             self.versions_full_info_df[(self.versions_full_info_df['DST_VERSION_KEY'] == key) &

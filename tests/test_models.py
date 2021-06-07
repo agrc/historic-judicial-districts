@@ -963,7 +963,7 @@ class TestDistricts:
 
         models.District.build_list_of_constituent_counties(district_mock)
 
-        assert district_mock.versions_full_info_df['COUNTIES_STRING'].tolist() == ['County1, County2, County3'] * 3
+        assert district_mock.versions_full_info_df['COUNTIES'].tolist() == ['County1, County2, County3'] * 3
 
     def test_build_counties_string_gets_different_counties_in_two_keys(self, mocker):
         district_mock = mocker.Mock()
@@ -976,7 +976,7 @@ class TestDistricts:
 
         models.District.build_list_of_constituent_counties(district_mock)
 
-        assert district_mock.versions_full_info_df['COUNTIES_STRING'].tolist() == [
+        assert district_mock.versions_full_info_df['COUNTIES'].tolist() == [
             'County1, County2, County3',
             'County1, County2, County3',
             'County1, County2, County3',
@@ -996,7 +996,7 @@ class TestDistricts:
 
         models.District.build_list_of_constituent_counties(district_mock)
 
-        assert district_mock.versions_full_info_df['COUNTIES_STRING'].tolist() == ['County1, County2, County3'] * 3
+        assert district_mock.versions_full_info_df['COUNTIES'].tolist() == ['County1, County2, County3'] * 3
 
     def test_build_counties_string_handles_na(self, mocker):
         district_mock = mocker.Mock()
@@ -1009,7 +1009,49 @@ class TestDistricts:
 
         models.District.build_list_of_constituent_counties(district_mock)
 
-        assert district_mock.versions_full_info_df['COUNTIES_STRING'].tolist() == ['County2, County3'] * 3
+        assert district_mock.versions_full_info_df['COUNTIES'].tolist() == ['County2, County3'] * 3
+
+    def test_calc_district_end_dates_normal_district(self, mocker):
+        district_mock = mocker.Mock()
+        district_mock.deduped_versions_df = pd.DataFrame(
+            data={
+                'DST_VERSION_KEY': ['key1', 'key2', 'key3'],
+                'CHANGE_DATE_IN_DST': [
+                    np.datetime64('2020-01-01'),
+                    np.datetime64('2030-01-01'),
+                    np.datetime64('2040-01-01'),
+                ]
+            }
+        )
+
+        models.District.calc_deduped_district_end_dates(district_mock)
+
+        assert district_mock.deduped_versions_df['END_DATE'].tolist()[:-1] == [
+            np.datetime64('2029-12-31'),
+            np.datetime64('2039-12-31'),
+        ]
+        assert pd.isna(district_mock.deduped_versions_df['END_DATE'].tolist()[-1])
+
+    def test_calc_district_end_dates_district_goes_away(self, mocker):
+        district_mock = mocker.Mock()
+        district_mock.deduped_versions_df = pd.DataFrame(
+            data={
+                'DST_VERSION_KEY': ['key1', 'key2', 'key3'],
+                'CHANGE_DATE_IN_DST': [
+                    np.datetime64('2020-01-01'),
+                    np.datetime64('2030-01-01'),
+                    np.datetime64('2040-01-01'),
+                ]
+            }
+        )
+
+        models.District.calc_deduped_district_end_dates(district_mock)
+
+        assert district_mock.deduped_versions_df['END_DATE'].tolist()[:-1] == [
+            np.datetime64('2029-12-31'),
+            np.datetime64('2039-12-31'),
+        ]
+        assert pd.isna(district_mock.deduped_versions_df['END_DATE'].tolist()[-1])
 
 
 class test_get_unique_district_versions():
