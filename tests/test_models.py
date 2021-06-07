@@ -685,7 +685,7 @@ class TestDistricts:
             data={
                 'COUNTY_KEY': ['foo', 'foo', 'foo', 'bar', 'bar', 'bar'],
                 'DST_NUMBER': ['1', '1', '2', '1', '2', '3'],
-                'CHANGE_DATE': ['date1', 'date2', 'date3', 'date4', 'date5', 'date6'],
+                'COUNTY_EFFECTIVE_DATE': ['date1', 'date2', 'date3', 'date4', 'date5', 'date6'],
             }
         )
 
@@ -697,7 +697,7 @@ class TestDistricts:
 
         assert district_mock.district_records['DST_NUMBER'].unique().tolist() == ['1']
         assert district_mock.district_records['COUNTY_KEY'].unique().tolist() == ['foo', 'bar']
-        assert district_mock.district_records['CHANGE_DATE'].unique().tolist() == ['date1', 'date2', 'date4']
+        assert district_mock.district_records['COUNTY_EFFECTIVE_DATE'].unique().tolist() == ['date1', 'date2', 'date4']
 
     def test_build_versions_dataframes(self, mocker):
         district_mock = mocker.Mock()
@@ -773,15 +773,15 @@ class TestDistricts:
     def test_removes_county_that_changes_after_last_district_change_date(self, mocker):
         test_state_df = pd.DataFrame(
             data={
-                'CHANGE_DATE': ['2020-01-01', '2020-01-01', '2030-01-01'],
-                'CHANGE_END_DATE': ['2039-12-31', '2029-12-31', '2039-12-31'],
+                'COUNTY_EFFECTIVE_DATE': ['2020-01-01', '2020-01-01', '2030-01-01'],
+                'COUNTY_EFFECTIVE_END_DATE': ['2039-12-31', '2029-12-31', '2039-12-31'],
                 'DST_NUMBER': ['1', '1', '42'],
                 'SHP_KEY': ['shape1', 'shape2', 'shape2'],
                 'DST_KEY': ['dst1', 'dst1', 'dst42'],
             }
         )
-        test_state_df['CHANGE_DATE'] = pd.to_datetime(test_state_df['CHANGE_DATE'])
-        test_state_df['CHANGE_END_DATE'] = pd.to_datetime(test_state_df['CHANGE_END_DATE'])
+        test_state_df['COUNTY_EFFECTIVE_DATE'] = pd.to_datetime(test_state_df['COUNTY_EFFECTIVE_DATE'])
+        test_state_df['COUNTY_EFFECTIVE_END_DATE'] = pd.to_datetime(test_state_df['COUNTY_EFFECTIVE_END_DATE'])
 
         test_district = models.District('1', test_state_df)
         test_district.find_records_versions()
