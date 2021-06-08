@@ -9,7 +9,7 @@ from lookback.models import State
 
 
 def main():
-    districts_csv = r'C:\gis\Projects\HistoricCounties\Data\JudicialDistricts\test.csv'
+    districts_csv = r'C:\gis\Projects\HistoricCounties\Data\JudicialDistricts\districts.csv'
     counties_shp = r'C:\gis\Projects\HistoricCounties\Data\HistoricalCountyBoundaries\UT_Historical_Counties\UT_Historical_Counties.shp'
     change_dates_csv = r'C:\gis\Projects\HistoricCounties\Data\JudicialDistricts\change_dates.csv'
     counties_output_fc = r'C:\gis\Projects\HistoricCounties\HistoricCounties.gdb\final_counties'
